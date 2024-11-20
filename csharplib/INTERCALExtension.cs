@@ -1,5 +1,4 @@
 using System;
-using System.Windows.Forms;
 using INTERCAL.Runtime;
 
 //Use this syntax to route jumps to a particular label to a method on
@@ -11,26 +10,25 @@ using INTERCAL.Runtime;
 //the same label pointing to different functions).
 [assembly: EntryPoint("(3000)", "CSIntercalLib", "foobar")]
 
-
 public class CSIntercalLib
 {
-    
+
 	public bool foobar(ExecutionContext ctx)
 	{
-		MessageBox.Show("Hello From Intercal!");
+		Console.WriteLine("Hello from C#!");
 		ctx[".3"] = ctx[".2"] + ctx[".1"];
 
-        //This is an artifact of the way the nexting stack works.
-        //Spinning up new threads is currently done here in  
-        //extension libraries typically by calling ctx.Eval(proc, label).
-        //See, e.g. sicklib.cs for an example.
+		//This is an artifact of the way the nexting stack works.
+		//Spinning up new threads is currently done here in  
+		//extension libraries typically by calling ctx.Eval(proc, label).
+		//See, e.g. sicklib.cs for an example.
 
-        //Since this function is being called inline a DO...NEXT to an
-        //extension proc does not automatically spin up a new thread.
+		//Since this function is being called inline a DO...NEXT to an
+		//extension proc does not automatically spin up a new thread.
 
-        //The good news is that extension procs like this don't have 
-        //to worry about calling RESUME - just return false for ordinary
-        //methods. You can return true if you want to cause 
-        return false;
+		//The good news is that extension procs like this don't have 
+		//to worry about calling RESUME - just return false for ordinary
+		//methods. You can return true if you want to cause 
+		return false;
 	}
 }

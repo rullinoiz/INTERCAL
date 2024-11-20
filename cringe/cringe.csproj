@@ -1,103 +1,89 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+﻿<Project Sdk="Microsoft.Net.Sdk">
   <PropertyGroup>
-    <ProjectType>Local</ProjectType>
-    <ProductVersion>7.0.9466</ProductVersion>
-    <SchemaVersion>1.0</SchemaVersion>
-    <ProjectGuid>{CD6CFE5F-5676-495B-B409-5486BBEB2E79}</ProjectGuid>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ApplicationIcon>
-    </ApplicationIcon>
-    <AssemblyKeyContainerName />
     <AssemblyName>cringe</AssemblyName>
-    <AssemblyOriginatorKeyFile />
-    <DefaultClientScript>JScript</DefaultClientScript>
-    <DefaultHTMLPageLayout>Grid</DefaultHTMLPageLayout>
-    <DefaultTargetSchema>IE50</DefaultTargetSchema>
-    <DelaySign>false</DelaySign>
     <OutputType>Exe</OutputType>
-    <RootNamespace>intercal</RootNamespace>
-    <StartupObject />
-    <FileUpgradeFlags>
-    </FileUpgradeFlags>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
-    <UpgradeBackupLocation>
-    </UpgradeBackupLocation>
-    <OldToolsVersion>0.0</OldToolsVersion>
-    <TargetFrameworkProfile />
+    <RootNamespace>INTERCAL</RootNamespace>
+    <TargetFramework>net40</TargetFramework>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <OutputPath>bin\Debug\</OutputPath>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
-    <BaseAddress>285212672</BaseAddress>
-    <CheckForOverflowUnderflow>false</CheckForOverflowUnderflow>
-    <ConfigurationOverrideFile />
     <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <DocumentationFile />
     <DebugSymbols>true</DebugSymbols>
-    <FileAlignment>4096</FileAlignment>
     <Optimize>false</Optimize>
-    <RegisterForComInterop>false</RegisterForComInterop>
-    <RemoveIntegerChecks>false</RemoveIntegerChecks>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <WarningLevel>4</WarningLevel>
     <DebugType>full</DebugType>
     <ErrorReport>prompt</ErrorReport>
-    <Prefer32Bit>false</Prefer32Bit>
-    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <OutputPath>bin\Release\</OutputPath>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
-    <BaseAddress>285212672</BaseAddress>
-    <CheckForOverflowUnderflow>false</CheckForOverflowUnderflow>
-    <ConfigurationOverrideFile />
     <DefineConstants>TRACE</DefineConstants>
-    <DocumentationFile />
     <DebugSymbols>false</DebugSymbols>
-    <FileAlignment>4096</FileAlignment>
     <Optimize>true</Optimize>
-    <RegisterForComInterop>false</RegisterForComInterop>
-    <RemoveIntegerChecks>false</RemoveIntegerChecks>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <WarningLevel>4</WarningLevel>
     <DebugType>none</DebugType>
     <ErrorReport>prompt</ErrorReport>
-    <Prefer32Bit>false</Prefer32Bit>
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System">
+    <Reference Update="System">
       <Name>System</Name>
     </Reference>
+    <Reference Update="System.Configuration" />
     <Reference Include="System.Configuration" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="confuse.cs">
+    <Compile Update="Compiler\Compiler.cs" />
+    <Compile Update="Compiler\CompilationContext.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="futile.cs">
+    <Compile Update="Compiler\Exceptions\CompilationException.cs" />
+    <Compile Update="Compiler\Exceptions\ParseException.cs" />
+    <Compile Update="Compiler\ExportList.cs" />
+    <Compile Update="Compiler\Lexer\Scanner.cs" />
+    <Compile Update="Compiler\LValue.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="perplex.cs">
+    <Compile Update="Expressions\Expression.ArrayExpression.cs" />
+    <Compile Update="Expressions\Expression.BinaryExpression.cs" />
+    <Compile Update="Expressions\Expression.ConstantExpression.cs" />
+    <Compile Update="Expressions\Expression.cs" />
+    <Compile Update="Expressions\Expression.NumericExpression.cs" />
+    <Compile Update="Expressions\Expression.QuotedExpression.cs" />
+    <Compile Update="Expressions\Expression.ReDimExpression.cs" />
+    <Compile Update="Program.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="spew.cs">
-      <SubType>Code</SubType>
-    </Compile>
+    <Compile Update="Statements\Statement.AbstainStatement.cs" />
+    <Compile Update="Statements\Statement.CalculateStatement.cs" />
+    <Compile Update="Statements\Statement.ComeFromStatement.cs" />
+    <Compile Update="Statements\Statement.cs" />
+    <Compile Update="Statements\Statement.ForgetStatement.cs" />
+    <Compile Update="Statements\Statement.GiveUpStatement.cs" />
+    <Compile Update="Statements\Statement.IgnoreStatement.cs" />
+    <Compile Update="Statements\Statement.NextStatement.cs" />
+    <Compile Update="Statements\Statement.NonsenseStatement.cs" />
+    <Compile Update="Statements\Statement.ReadOutStatement.cs" />
+    <Compile Update="Statements\Statement.ReinstateStatement.cs" />
+    <Compile Update="Statements\Statement.RememberStatement.cs" />
+    <Compile Update="Statements\Statement.ResumeStatement.cs" />
+    <Compile Update="Statements\Statement.RetrieveStatement.cs" />
+    <Compile Update="Statements\Statement.SentinelStatement.cs" />
+    <Compile Update="Statements\Statement.StashStatement.cs" />
+    <Compile Update="Statements\Statement.WriteInStatement.cs" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="app.config" />
-  </ItemGroup>
+<!--  <ItemGroup>-->
+<!--    <None Include="app.config" />-->
+<!--  </ItemGroup>-->
   <ItemGroup>
     <ProjectReference Include="..\intercal.runtime\intercal.runtime.csproj">
       <Project>{37a22e15-5c33-4a06-81a3-dae690a2cafb}</Project>
       <Name>intercal.runtime</Name>
     </ProjectReference>
   </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <PropertyGroup>
-    <PreBuildEvent />
-    <PostBuildEvent />
-  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
+  </ItemGroup>
 </Project>
