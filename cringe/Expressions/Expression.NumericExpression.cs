@@ -1,13 +1,13 @@
 using System.Diagnostics;
 using INTERCAL.Compiler;
 using INTERCAL.Compiler.Exceptions;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 using INTERCAL.Runtime;
 using INTERCAL.Statements;
 
 namespace INTERCAL.Expressions
 {
-    internal abstract partial class Expression
+    public abstract partial class Expression
     {
         /// <summary>
         /// A numeric expression is an <see cref="LValue"/> with an optional unary operation on the front.
@@ -97,7 +97,7 @@ namespace INTERCAL.Expressions
             public override void Emit(CompilationContext ctx)
             {
                 if (_longform == null)
-                    ctx.EmitRaw("frame.ExecutionContext[\"" + _lval + "\"]");
+                    ctx.EmitRaw($"{Constants.FrameExecutionContext}[\"{_lval}\"]");
                 else
                 {
                     string sf, lf;
@@ -105,26 +105,25 @@ namespace INTERCAL.Expressions
                     {
                         case "v":
                         case "V":
-                            sf = "Lib.UnaryOr16";
-                            lf =  "Lib.UnaryOr32";
+                            sf = Constants.LibUnaryOr16;
+                            lf =  Constants.LibUnaryOr32;
                             break;
                         case "?":
-                            sf = "Lib.UnaryXor16";
-                            lf =  "Lib.UnaryXor32";
+                            sf = Constants.LibUnaryXor16;
+                            lf =  Constants.LibUnaryXor32;
                             break;
                         case "&":
-                            sf = "Lib.UnaryAnd16";
-                            lf =  "Lib.UnaryAnd32";
+                            sf = Constants.LibUnaryAnd16;
+                            lf =  Constants.LibUnaryAnd32;
                             break;
                         default:
                             throw new CompilationException("Bad unary operator");
 
                     }
 
-                    if (ReturnType == typeof(ushort))
-                        ctx.EmitRaw(sf + "(((ushort)frame.ExecutionContext[\"" + _lval + "\"]))");
-                    else
-                        ctx.EmitRaw(lf + "(((uint)frame.ExecutionContext[\"" + _lval + "\"]))");
+                    ctx.EmitRaw(ReturnType == typeof(ushort)
+                        ? $"{sf}(((ushort){Constants.FrameExecutionContext}[\"{_lval}\"]))"
+                        : $"{lf}(((uint){Constants.FrameExecutionContext}[\"{_lval}\"]))");
                 }
             }
         }

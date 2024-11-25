@@ -1,11 +1,11 @@
 using INTERCAL.Compiler;
 using INTERCAL.Compiler.Exceptions;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 using INTERCAL.Runtime;
 
 namespace INTERCAL.Expressions
 {
-    internal abstract partial class Expression
+    public abstract partial class Expression
     {
         /// <remarks>
         /// This expression might return different types at different times...
@@ -34,7 +34,7 @@ namespace INTERCAL.Expressions
                         ReturnType = typeof(uint);
                         break;
                     default:
-                        throw new ParseException($"line {s.LineNumber}:Illegal operator {s.Current.Value}");
+                        throw new ParseException($"line {Scanner.LineNumber}:Illegal operator {s.Current.Value}");
                 }
             }
 
@@ -84,7 +84,7 @@ namespace INTERCAL.Expressions
                 switch (_op)
                 {
                     case "$":
-                        ctx.EmitRaw("Lib.Mingle(");
+                        ctx.EmitRaw($"{Constants.LibMingle}(");
                         _left.Emit(ctx);
                         ctx.EmitRaw(", ");
                         _right.Emit(ctx);
@@ -94,7 +94,7 @@ namespace INTERCAL.Expressions
                         //A select might use a 16-bit selector to select from a 32-bit
                         //value.  No harm here if we pad the 16-bit value out to 32-bits,
                         //select against the 32-bit value, then take the bottom 16 bits.
-                        ctx.EmitRaw("(uint)Lib.Select(");
+                        ctx.EmitRaw($"(uint){Constants.LibSelect}(");
                         _left.Emit(ctx);
                         ctx.EmitRaw(",");
                         _right.Emit(ctx);

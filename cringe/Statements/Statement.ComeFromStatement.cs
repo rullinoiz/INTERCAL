@@ -1,5 +1,5 @@
 using INTERCAL.Compiler;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 
 namespace INTERCAL.Statements
 {
@@ -7,6 +7,9 @@ namespace INTERCAL.Statements
     {
         public class ComeFromStatement : Statement
         {
+            public const string Token = "COME FROM";
+            public const string GerundName = "COMING FROM";
+            
             public readonly string Target;
 
             public override void Emit(CompilationContext ctx)

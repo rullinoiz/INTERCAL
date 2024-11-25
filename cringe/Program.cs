@@ -1,15 +1,16 @@
 using System;
-using INTERCAL.Runtime;
-using INTERCAL.Statements;
 using System.IO;
 using System.Text;
 using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Collections.Generic;
-using System.Linq;
 using INTERCAL.Compiler;
 using INTERCAL.Compiler.Exceptions;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
+using INTERCAL.Runtime;
+using INTERCAL.Statements;
 
 namespace INTERCAL
 {
@@ -20,13 +21,11 @@ namespace INTERCAL
         /// </summary>
         public readonly List<Statement> Statements = new List<Statement>();
 
-        private IEnumerable<Statement> OccurencesOf(Type t)
-        {
-            return from s in Statements
-                   where s.GetType() == t
-                   select s;
-        }
-        
+        private IEnumerable<Statement> OccurencesOf(Type t) =>
+            from s in Statements
+            where s.GetType() == t || (s is Statement.LabelStatement l && l.Statement.GetType() == t)
+            select s;
+
         /// <remarks>
         /// We only need to include the generic <c>ABSTAIN</c> guard for statements that are actually
         /// targets of an <c>ABSTAIN</c>. Whenever we see an <c>ABSTAIN</c> statement or a disabled (<c>NOT</c>)
@@ -46,7 +45,8 @@ namespace INTERCAL
         //}
         public int StatementCount => Statements.Count;
 
-        public IEnumerable<Statement> this[string label] => Statements.Where(s => s.Label == label);
+        public IEnumerable<Statement> this[string label] 
+            => Statements.Where(s => s is Statement.LabelStatement l && l.Label == label);
 
         private Statement this[int n] => Statements[n];
 
@@ -59,26 +59,28 @@ namespace INTERCAL
         {
             try
             {
+                var current = Statements[i];
+                
                 // if we find a cycle just bail out cause that's bad juju
                 if (statementsExamined.Contains(i))
                 {
                     statementsExamined.ToList().ForEach(Console.WriteLine);
-                    Console.WriteLine("Cycle detected encountered at line {0}", Statements[i].LineNumber);
+                    Console.WriteLine("Cycle detected encountered at line {0}", current.LineNumber);
 
                     return false;
                 }
 
                 statementsExamined.Push(i);
-
+                
                 // If trapdoor is true then follow the COME FROM
                 // If the statement has a % modifier then we need to ALSO ensure the successor is safe
-                if (Statements[i].Trapdoor > 0)
+                if (current is Statement.LabelStatement label && label.Trapdoor > 0)
                 {
-                    var safeTarget = IsSimpleFlow(Statements[i].Trapdoor, statementsExamined);
+                    var safeTarget = IsSimpleFlow(label.Trapdoor, statementsExamined);
 
                     switch (safeTarget)
                     {
-                        case true when Statements[i].Percent == 100:
+                        case true when label.Statement.Percent == 100:
                             return true;
                         case true:
                         {
@@ -89,9 +91,9 @@ namespace INTERCAL
                             return false;
                     }
                 }
-                else switch (Statements[i])
+                else switch (current)
                 {
-                    case Statement.ResumeStatement _ when Statements[i].Percent < 100:
+                    case Statement.ResumeStatement _ when current.Percent < 100:
                     {
                         var successor = i + 1;
                         return IsSimpleFlow(successor, statementsExamined);
@@ -125,7 +127,7 @@ namespace INTERCAL
                         // a) the flow beginning at the target is safe
                         // b) the flow of the successor is safe.
                         var ns = Statements[i] as Statement.NextStatement;
-                        var target = Statements.FirstOrDefault(s => ns != null && s.Label == ns.Target);
+                        var target = Statements.FirstOrDefault(s => ns != null && s is Statement.LabelStatement l && l.Label == ns.Target);
                         if (target == null)
                         {
                             statementsExamined.ToList().ForEach(Console.WriteLine);
@@ -133,7 +135,7 @@ namespace INTERCAL
                             return false;
                         }
 
-                        var isTargetSafe =  IsSimpleFlow(target.StatementNumber, statementsExamined);
+                        var isTargetSafe = IsSimpleFlow(target.StatementNumber, statementsExamined);
 
                         if (!isTargetSafe)
                             return false;
@@ -182,9 +184,8 @@ namespace INTERCAL
             {
                 if (!(this[i] is Statement.ComeFromStatement s)) continue;
                 var sTarget = s.Target;
-                var target = this[sTarget].First();
 
-                if (target == null)
+                if (!(this[sTarget].First() is Statement.LabelStatement target))
                     throw new CompilationException(Messages.E444 + s.Target);
 
                 if (target.Trapdoor < 0)
@@ -260,16 +261,22 @@ namespace INTERCAL
                 //	this.OccurencesOf[typeof(Statement.AbstainStatement)]
                 //	= (int)this.OccurencesOf[typeof(Statement.AbstainStatement)] + 1;
 
-                if (s.Label == null) continue;
-                var lblVal = uint.Parse(s.Label.Substring(1, s.Label.Length - 2));
+                if (!(s is Statement.LabelStatement lbl)) continue;
+                var lblVal = lbl.LabelNumber;
                 if (lblVal > ushort.MaxValue)
-                {
-                    throw new CompilationException(Messages.E197 + " " + s.Label);
-                }
+                    throw new CompilationException($"{Messages.E197} {lbl.Label}");
 
-                // Check for duplicate label
-                if (this[s.Label].Count() > 1)
-                    throw new CompilationException(Messages.E182 + " " + s.Label);
+                if (this[lbl.Label].Count() > 1)
+                    throw new CompilationException($"{Messages.E182} {lbl.Label}");
+
+                // if (s.Label == null) continue;
+                // var lblVal = uint.Parse(s.Label.Substring(1, s.Label.Length - 2));
+                // if (lblVal > ushort.MaxValue)
+                //     throw new CompilationException(Messages.E197 + " " + s.Label);
+                //
+                // // Check for duplicate label
+                // if (this[s.Label].Count() > 1)
+                //     throw new CompilationException(Messages.E182 + " " + s.Label);
             }
         }
 
@@ -302,12 +309,13 @@ namespace INTERCAL
             // nonpublic lables.
 
             // Note that we do NOT emit an attribute that can be used to just run a program compiled up.  
-            ctx.EmitRaw("\r\n//These attributes are used by the compiler for component linking\r\n");
+            ctx.EmitRaw("\r\n// These attributes are used by the compiler for component linking\r\n");
 
-            foreach (var s in Statements.Where(s => s.Label != null)
-                         .Where(s => ctx.PublicLabels == null || ctx.PublicLabels[s.Label]))
+            foreach (var statement in Statements.Where(s => s is Statement.LabelStatement)
+                         .Where(s => ctx.PublicLabels == null || ctx.PublicLabels[((Statement.LabelStatement)s).Label]))
             {
-                ctx.EmitRaw("[assembly: EntryPoint(\"" 
+                var s = (Statement.LabelStatement)statement;
+                ctx.EmitRaw($"[assembly: {nameof(EntryPointAttribute)}(\"" 
                             + s.Label + "\", \"" + ctx.NameOfAssembly + "\", \"DO_" 
                             + s.Label.Substring(1, s.Label.Length - 2) + "\")]\r\n");
             }
@@ -319,41 +327,44 @@ namespace INTERCAL
         {
             //We emit a helpful stub for every label (unless the user has suppressed
             //some of them by using "/public:"
-            foreach (var s in Statements.Where(s => s.Label != null)
-                         .Where(s => ctx.PublicLabels == null || ctx.PublicLabels[s.Label]))
+            foreach (var statement in Statements.Where(s => s is Statement.LabelStatement)
+                         .Where(s => ctx.PublicLabels == null 
+                                     || ctx.PublicLabels[((Statement.LabelStatement)s).Label]))
             {
-                ctx.EmitRaw("public bool DO_" 
+                var s = (Statement.LabelStatement)statement;
+                ctx.Emit("public bool DO_" 
                             + s.Label.Substring(1, s.Label.Length - 2) 
-                            + "(ExecutionContext context)\r\n{\r\n");
-                ctx.EmitRaw("   return context.Evaluate(Eval," + s.Label + ");\r\n");
-                ctx.EmitRaw("}\r\n\r\n");
+                            + "(ExecutionContext context)");
+                ctx.BeginBlock();
+                ctx.Emit($"return context.Evaluate(Eval,{s.Label});");
+                ctx.EndBlock();
             }
 
             // This is the "late bound" version that allows clients to dynamically pass a label. *ALL* labels can be
             // accessed this way.
             if (ctx.TypeOfAssembly != CompilationContext.AssemblyType.Library) return;
             {
-                ctx.EmitRaw("   public void DO(ExecutionContext context, string label)\r\n   {\r\n");
-                ctx.EmitRaw("      switch(label)\r\n");
-                ctx.EmitRaw("      {\r\n");
+                ctx.Emit("public void DO(ExecutionContext context, string label)")
+                .BeginBlock()
+                .EmitRaw(ctx.Indent() + "switch(label)\r\n")
+                .BeginBlock();
 
-                foreach (var s in Statements)
+                foreach (var statement in Statements)
                 {
-                    if (s.Label == null) continue;
-                    if ((ctx.PublicLabels != null) &&
-                        (ctx.PublicLabels[s.Label] == false))
-                    {
+                    if (!(statement is Statement.LabelStatement s)) continue;
+                    if (ctx.PublicLabels != null && ctx.PublicLabels[s.Label] == false)
                         continue;
-                    }
 
-                    var labelValue = uint.Parse(s.Label.Substring(1, s.Label.Length - 2));
+                    var labelValue = s.LabelNumber;
 
-                    ctx.EmitRaw("         case \"" + s.Label + "\": ");
-                    ctx.EmitRaw("context.Evaluate(Eval," + labelValue + ");  ");
+                    ctx.EmitRaw(ctx.Indent() + $"case \"{s.Label}\":\t");
+                    ctx.EmitRaw($"context.Evaluate(Eval, {labelValue});\t");
                     ctx.EmitRaw("break;\r\n");
                 }
 
-                ctx.EmitRaw("      }\r\n   }\r\n\r\n");
+                ctx.EndBlock();
+                ctx.EndBlock();
+                ctx.EmitRaw("\r\n");
             }
         }
 
@@ -361,31 +372,44 @@ namespace INTERCAL
         {
             var abstains = OccurencesOf(typeof(Statement.AbstainStatement)).Count();
 
-            abstains += Statements.Count(s => !s.BEnabled);
+            // abstains += Statements.Count(s => !s.BEnabled);
 
             if (abstains <= 0) return;
             {
                 // This array holds one entry for every statement that might be abstained, representing an improvement
                 // over C-INTERCAL. The following code is a mess and could certainly be refactored.
-                ctx.EmitRaw("   bool[] abstainMap = new bool[] {");
+                ctx.EmitRaw(ctx.Indent() + $"uint[] {Constants.AbstainMapName} = {{ ");
 
                 var slot = 0;
                 var bfirst = true;
-                foreach (var s in Statements.Where(s => !s.BEnabled 
-                                                        || _abstainedGerunds.ContainsKey(s.GetType()) 
-                                                        || (s.Label != null && _abstainedLabels.ContainsKey(s.Label))))
+                foreach (var s in typeof(Statement).GetNestedTypes()
+                             .Where(s => _abstainedGerunds.ContainsKey(s)))
                 {
                     if (!bfirst)
-                        ctx.EmitRaw(",");
+                        ctx.EmitRaw(", ");
                     else
                         bfirst = false;
 
-                    ctx.EmitRaw(s.BEnabled ? "true" : "false");
-                    s.AbstainSlot = slot;
+                    ctx.EmitRaw("0");
+                    Statement.SetStaticAbstainSlot(s, slot);
                     slot++;
                 }
 
-                ctx.EmitRaw("};\n\n");
+                foreach (var s in Statements.Where(s => s is Statement.LabelStatement statement 
+                                                        && _abstainedLabels.ContainsKey(statement.Label)))
+                {
+                    var label = (Statement.LabelStatement)s;
+                    if (!bfirst)
+                        ctx.EmitRaw(", ");
+                    else
+                        bfirst = false;
+
+                    ctx.EmitRaw(label.GetEnabled() ? "0" : "1");
+                    label.SetAbstainSlot(slot);
+                    slot++;
+                }
+
+                ctx.EmitRaw(" };\r\n");
             }
         }
 
@@ -393,42 +417,43 @@ namespace INTERCAL
         {
             // If we don't have any labels then we don't need to emit this switch block.
             var labels = from s in Statements
-                         where !string.IsNullOrEmpty(s.Label)
-                         select s.Label;
+                         where s is Statement.LabelStatement
+                         select (Statement.LabelStatement)s;
 
-            if (!labels.Any()) return;
+            var labelStatements = labels as Statement.LabelStatement[] ?? labels.ToArray();
+            if (!labelStatements.Any()) return;
             //ctx.EmitRaw("dispatch:\n");
-            ctx.EmitRaw("   switch(frame.Label)\r\n   {\r\n");
+            ctx.Emit("switch(frame.Label)")
+            .BeginBlock();
 
-            foreach (var labelNum in from s in Statements 
-                     where s.Label != null select int.Parse(s.Label.Substring(1, s.Label.Length - 2)))
+            foreach (var label in labelStatements)
             {
-                ctx.EmitRaw("      case " + labelNum + ": ");
-                ctx.EmitRaw("goto label_" + labelNum + ";\r\n");
+                ctx.EmitRaw(ctx.Indent() + $"case {label.LabelNumber}: ");
+                ctx.EmitRaw($"\t\t\tgoto {Constants.NextLabelPrefix}{label.LabelNumber};\r\n");
             }
-
-            ctx.EmitRaw("   }\r\n");
+            ctx.EndBlock();
         }
 
         private void EmitProgramProlog(CompilationContext ctx)
         {
-            ctx.Emit("using System");
+            ctx.Emit(
+$@"// This code was generated by SICK (Simple INTERCAL Compiler) version {Assembly.GetExecutingAssembly().GetName().Version}, using the command
+// cringe.exe {ctx.Arguments.Aggregate((a, b) => a + " " + b)}
+// Authorship disclaimed by Jason Whittington 2017. All rights reserved." + "\r\n");
+            ctx.Emit("using System;");
             //ctx.Emit("using System.Threading");
-            ctx.Emit("using INTERCAL.Runtime");
-            ctx.Emit("using System.Diagnostics");
+            ctx.Emit("using INTERCAL.Runtime;");
+            ctx.Emit("using System.Diagnostics;");
 
             if (ctx.TypeOfAssembly == CompilationContext.AssemblyType.Library)
                 EmitAttributes(ctx);
 
             // There's nothing on this class that can't be serialized, I don't think
-            ctx.EmitRaw("[Serializable]\n");
-            ctx.EmitRaw("public class " + ctx.NameOfAssembly + " : " + ctx.BaseClass + "\n{ \n");
+            ctx.Emit("[Serializable]");
+            ctx.Emit($"public class {ctx.NameOfAssembly} : {ctx.BaseClass}");
+            ctx.BeginBlock();
 
-            ctx.EmitRaw(
-                "   public void Run(){\r\n" +
-                "      ExecutionContext ec = INTERCAL.Runtime.ExecutionContext.CreateExecutionContext();\r\n" +
-                "      ec.Run(Eval);\r\n" +
-                "   }\r\n\r\n");
+            ctx.Emit("public void Run() => INTERCAL.Runtime.ExecutionContext.CreateExecutionContext().Run(Eval);");
 
             // We assume that EXEs do not want to expose labels and that DLLs do.
             if (ctx.TypeOfAssembly == CompilationContext.AssemblyType.Library)
@@ -437,27 +462,38 @@ namespace INTERCAL
             EmitAbstainMap(ctx);
 
             //Now we emit the main function.  Eval overrides the virtual function from the base class.
-            ctx.EmitRaw("   protected void Eval(ExecutionFrame frame)" + "   {\r\n");
+            ctx.Emit(Constants.EvalMethodSignature);
+            ctx.BeginBlock();
 
             EmitDispatchMap(ctx);
+
+            if (Statement.TryAgainStatement.TryAgainLine > 0)
+                ctx.Emit($"{Constants.ProgramBeginLabel}:");
+
+            // ctx.EndBlock();
         }
 
         private static void EmitProgramEpilog(CompilationContext ctx)
         {
-            ctx.EmitRaw(
-            "      //Generic catch-all if the program\r\n" +
-            "      throw new Exception(Messages.E633);\r\n\r\n" +
-            "   exit:\r\n" +
-            "      return;\r\n" +
-            "   }\r\n\r\n");
+            if (Statement.TryAgainStatement.TryAgainLine == -1)
+            {
+                ctx.Emit("// Generic catch-all if the program")
+                .Emit($"throw new Exception({nameof(Messages)}.{nameof(Messages.E633)});");
+            }
+            
+            ctx.Emit($"{Constants.ExitLabelName}:")
+            .Emit("return;")
+            .EndBlock();
 
             EmitProperties(ctx);
-            ctx.EmitRaw("}\r\n\r\n");
+            ctx.EndBlock();
 
             if (ctx.TypeOfAssembly != CompilationContext.AssemblyType.Exe) return;
             // This enables remoting, such as it is.
-            ctx.EmitRaw("class entry\r\n{\n");
-            ctx.EmitRaw("   static void Main(string[] args)\r\n{\r\n");
+            ctx.Emit(Constants.EntryClassSignature);
+            ctx.BeginBlock();
+            ctx.Emit(Constants.EntryMethodSignature);
+            ctx.BeginBlock();
             
             //var configFileName = ctx.NameOfAssembly + ".exe.config";
             //ctx.EmitRaw("if(System.IO.File.Exists(\"" + configFileName + "\"))\n");
@@ -471,56 +507,39 @@ namespace INTERCAL
             //ctx.EmitRaw("      Console.ReadLine();\r\n");
             //ctx.EmitRaw("      while(Console.In.Peek() != -1) { Console.Read(); }\r\n\r\n");
 
-            ctx.EmitRaw("      //Speed up startup time by ensuring adequate thread availability\r\n");
-            ctx.EmitRaw("      System.Threading.ThreadPool.SetMinThreads(80, 4);\r\n\r\n");
+            ctx.Emit("// Speed up startup time by ensuring adequate thread availability");
+            ctx.Emit("var t = System.Threading.ThreadPool.SetMinThreads(80, 4);");
 
-            ctx.EmitRaw(
-                "      try\r\n" +
-                "      {\r\n");
-            ctx.EmitRaw($"         var program = new {ctx.NameOfAssembly}();\r\n");
-            ctx.EmitRaw(
-                "         program.Run();\r\n" +
-                "      }\r\n");
+            ctx.Emit("try")
+            .BeginBlock()
+                .Emit($"var program = new {ctx.NameOfAssembly}();")
+                .Emit("program.Run();")
+            .EndBlock()
+            .Emit("catch (Exception e)")
+            .BeginBlock()
+                .Emit($"Console.WriteLine(e{(ctx.DebugBuild ? "" : ".Message")});")
+            .EndBlock();
 
-            if (ctx.DebugBuild)
-            {
-                ctx.EmitRaw(
-                    "      catch (Exception e)\r\n" +
-                    "      {\r\n" +
-                    "         Console.WriteLine(e);\r\n" +
-                    "      }\r\n"
-                );
-            }
-            else
-            {
-                ctx.EmitRaw(
-                    "      catch (Exception e)\r\n" +
-                    "      {\r\n" +
-                    "         Console.WriteLine(e.Message);\r\n" +
-                    "      }\r\n"
-                );
-
-            }
-
-
-            ctx.EmitRaw("   }\r\n");
-            ctx.EmitRaw("}\r\n");
+            ctx.EndBlock();
+            ctx.EndBlock();
         }
 
         private static void EmitProperties(CompilationContext c)
         {
             foreach (var s in c.ExternalReferences)
             {
-                var fieldName = "m_" + CompilationContext.GeneratePropertyName(s);
+                var propertyName = CompilationContext.GeneratePropertyName(s);
+                var fieldName = "m_" + propertyName;
                 c.EmitRaw("\n");
-                c.EmitRaw(s + " " + fieldName + ";\n");
-                c.EmitRaw(s + " " + CompilationContext.GeneratePropertyName(s));
-                c.EmitRaw("\n{\n");
-                c.EmitRaw("   get {");
-                c.EmitRaw("if(" + fieldName + "== null) " + fieldName + " = new " + s + "();");
-                c.EmitRaw(" return " + fieldName + ";");
-                c.EmitRaw("}");
-                c.EmitRaw("\n}\n");
+                c.Emit($"private {s} {fieldName};");
+                c.Emit($"private {s} {propertyName} => {fieldName} ??= new {s}();");
+                // c.BeginBlock()
+                //     .Emit("get")
+                //     .BeginBlock()
+                //         .Emit($"if ({fieldName} == null) {fieldName} = new {s}();")
+                //         .Emit($"return {fieldName};")
+                //     .EndBlock()
+                // .EndBlock();
             }
         }
 
@@ -531,19 +550,21 @@ namespace INTERCAL
             //Debug.Assert(s.Label != "(2004)");
 
             // TODO: convert newlines to spaces otherwise multiline statements will 
-            c.EmitRaw("\r\n/* ");
-            c.EmitRaw(s.StatementText);
+            c.Emit($"\r\n{c.Indent()}/* {s.StatementText} */");
 
-            c.EmitRaw("*/\r\n");
+            if (s.GetEnabled() == false && !(s is Statement.LabelStatement)) return;
 
-            if (s.Label != null)
-                c.EmitRaw("\r\nlabel_" + s.Label.Substring(1, s.Label.Length - 2) + ": \r\n");
-
-            //We need to emit labels for COME FROM so the trapdoor has something to point to.
-            else if (s is Statement.ComeFromStatement)
+            switch (s)
             {
-                c.EmitRaw("\r\nline_" + s.StatementNumber + ":\r\n");
+                case Statement.LabelStatement label:
+                    c.Emit($"{Constants.NextLabelPrefix}{label.LabelNumber}:");
+                    break;
+                //We need to emit labels for COME FROM so the trapdoor has something to point to.
+                case Statement.ComeFromStatement _:
+                    c.Emit($"{Constants.ComeFromLabelPrefix}{s.StatementNumber}:");
+                    break;
             }
+            
             //Uncomment these lines to emit labels for every single statement.  This
             //is not currently necessary..
             //else
@@ -554,49 +575,59 @@ namespace INTERCAL
             //this compiler is twice as good!
             if (c.Buggy && c.Random.Next(256) == 17)
             {
-                c.EmitRaw("//E774: RANDOM COMPILER BUG\r\n");
-                c.Emit("Lib.Fail(Messages.E774)");
+                c.Emit("// E774: RANDOM COMPILER BUG");
+                c.Emit($"{Constants.LibFail}({nameof(Messages)}.{nameof(Messages.E774)});");
             }
 
-            //We only emit abstain guards for statements that are the target of 
-            //an abstain, either by name or by gerund.
-            if (s.AbstainSlot >= 0)
+            // We only emit abstain guards for statements that are the target of 
+            // an abstain, either by name or by gerund.
+            if (s.GetAbstainSlot() >= 0)
             {
-                c.EmitRaw("if(abstainMap[" + s.AbstainSlot.ToString() + "])\n{\n");
+                c.Emit($"if ({Constants.AbstainMapName}[{s.GetAbstainSlot()}] == 0)");
+                c.BeginBlock();
+            }
+            else if (s is Statement.LabelStatement labelStatement && labelStatement.GetAbstainSlot() >= 0)
+            {
+                c.Emit($"if ({Constants.AbstainMapName}[{labelStatement.GetAbstainSlot()}] == 0)");
+                c.BeginBlock();
             }
 
-            if ((s.Percent > 0) && (s.Percent < 100))
+            if (s.Percent > 0 && s.Percent < 100)
             {
-                c.EmitRaw("if(Lib.Rand(100)  < " + s.Percent.ToString() + ")\n{\n");
-                c.EmitRaw($"    Trace.WriteLine(\"[{s.StatementNumber:0000}] Rolled the dice and lost.\");");
+                c.Emit($"if ({Constants.LibRand}(100) < {s.Percent})");
+                c.BeginBlock()
+                    .Emit($"Trace.WriteLine(\"[{s.StatementNumber:0000}] Rolled the dice and lost.\");");
+                // c.EndBlock();
             }
 
             if (c.DebugBuild)
-            {
-                c.EmitRaw($"Trace.WriteLine(\"[{s.StatementNumber:0000}] {s.GetType().Name}\");\n");
-            }
+                c.Emit($"Trace.WriteLine(\"[{s.StatementNumber:0000}] {s.GetType().Name}\");");
+            
 
         }
 
         private void EmitStatementEpilog(Statement s, CompilationContext c)
         {
+            if (s.GetEnabled() == false && !(s is Statement.LabelStatement)) return;
+            
             // COME FROM statements don't include an abstain guard around 
             // the COME FROM itself.  Any checks for abstaining or % prefixes
             // happen as part of processing the trap door below.
             if (!(s is Statement.ComeFromStatement))
             {
-                if ((s.Percent < 100) && (s.Percent > 0))
+                if (s.Percent < 100 && s.Percent > 0)
                 {
-                    c.EmitRaw("}\n\n");
-                    c.EmitRaw("else {");
-                    c.EmitRaw($"    Trace.WriteLine(\"[{s.StatementNumber:0000}] Rolled the dice and lost.\");");
-                    c.EmitRaw("}");
+                    c.EndBlock();
+                    c.Emit("else")
+                    .BeginBlock()
+                        .Emit($"\tTrace.WriteLine(\"[{s.StatementNumber:0000}] Rolled the dice and lost.\");")
+                    .EndBlock();
                 }
 
                 // Close off the abstain block
-                if (s.AbstainSlot >= 0)
+                if (s.GetAbstainSlot() >= 0)
                 {
-                    c.EmitRaw("}\n\n");
+                    c.EndBlock();
                 }
             }
 
@@ -607,8 +638,8 @@ namespace INTERCAL
             //
             // (20) DO COME FROM (10)
             // (30) DO COME FROM (20)
-            if (s.Trapdoor <= 0) return;
-            var target = Statements[s.Trapdoor];
+            if (!(s is Statement.LabelStatement label) || label.Trapdoor <= 0) return;
+            var target = Statements[label.Trapdoor];
 
             // We'll need to emit a label identifying the trapdoor, because if 
             // the line in question is a DO NEXT then when we return from the next
@@ -616,20 +647,17 @@ namespace INTERCAL
             //c.EmitRaw("trapdoor_" + s.StatementNumber + ":\n");
 
             // make sure the COME FROM in question has not been abstained!
-            if (target.AbstainSlot >= 0)
-                c.EmitRaw("if(abstainMap[" + target.AbstainSlot + "])\n");
+            if (target.GetAbstainSlot() >= 0)
+                c.Emit($"if ({Constants.AbstainMapName}[{target.GetAbstainSlot()}] == 0)");
 
             //If the line is "DO %50 COME FROM" then we should jump 50 percent
             //of the time
-            if ((target.Percent > 0) && (target.Percent < 100))
-            {
-                c.EmitRaw("  if(lib.Rand(100) < " + target.Percent + ")\n   ");
-            }
-
-            if (target.Label != null)
-                c.EmitRaw("    goto label_" + target.Label.Substring(1, target.Label.Length - 2) + ";\n");
-            else
-                c.EmitRaw("    goto line_" + target.StatementNumber + ";\n");
+            if (target.Percent > 0 && target.Percent < 100)
+                c.Emit($"if (lib.Rand(100) < {target.Percent})");
+            
+            c.Emit(target is Statement.LabelStatement label2
+                ? $"goto {Constants.NextLabelPrefix}{label2.LabelNumber};\n"
+                : $"goto {Constants.ComeFromLabelPrefix}{target.StatementNumber};");
         }
         
         /// <summary>
@@ -655,13 +683,14 @@ namespace INTERCAL
                     // replace it with an ordinary function call. Err...handling
                     // RESUME n with n>1 might turn out to be painful (but doable). 
                 }
-
+                
                 EmitStatementProlog(s, c);
                 if (s.Splatted)
-                {
-                    CompilationContext.Warn("(" + s.LineNumber + ") * " + s.StatementText);
-                }
-                s.Emit(c);
+                    CompilationContext.Warn($"({s.LineNumber}) * {s.StatementText}");
+                else if (!s.Traditional && c.Traditional)
+                    throw new CompilationException(Messages.E111);
+                if (s.GetEnabled() || s is Statement.LabelStatement)
+                    s.Emit(c);
                 EmitStatementEpilog(s, c);
             }
 

@@ -1,5 +1,5 @@
 using INTERCAL.Compiler;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 
 namespace INTERCAL.Statements
 {
@@ -7,14 +7,31 @@ namespace INTERCAL.Statements
     {
         public class RetrieveStatement : StashStatement
         {
-            public RetrieveStatement(Scanner s) : base(s){}
+            public new const string Token = "RETRIEVE";
+            public new const string GerundName = "RETRIEVING";
+            
+            public RetrieveStatement(Scanner s) : base(s) { }
             public override void Emit(CompilationContext ctx)
             {
+                var first = true;
+                var labelList = string.Empty;
+                var labelArgs = string.Empty;
                 foreach (var lval in Lvals)
                 {
-                    ctx.Emit($"Trace.WriteLine(\"       Retrieving {lval.Name}\");");
-                    ctx.Emit("frame.ExecutionContext.Retrieve(\"" + lval.Name+ "\")");
+                    if (first)
+                    {
+                        labelArgs += $"\"{lval.Name}\"";
+                        labelList += lval.Name;
+                        first = false;
+                    }
+                    else
+                    {
+                        labelArgs += $", \"{lval.Name}\"";
+                        labelList += " + " + lval.Name;
+                    }
                 }
+                ctx.Emit($"Trace.WriteLine(\"\\tRetrieving {labelList}\");");
+                ctx.Emit($"{Constants.RuntimeRetrieve}({labelArgs});");
             }
 
         }

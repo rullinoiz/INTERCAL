@@ -1,5 +1,5 @@
 using INTERCAL.Compiler;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 using INTERCAL.Expressions;
 
 namespace INTERCAL.Statements
@@ -17,7 +17,7 @@ namespace INTERCAL.Statements
                 _destination = new LValue(s);
 
                 s.MoveNext();
-                VerifyToken(s, "<-");
+                AssertToken(s, "<-");
                 s.MoveNext();
 				
                 _expression = Expression.CreateExpression(s);
@@ -26,31 +26,30 @@ namespace INTERCAL.Statements
                 if (!_destination.IsArray || _destination.Subscripted) return;
                 _isArrayRedimension = true;
                 _expression = new Expression.ReDimExpression(s,_expression);
-
             }
 			
             public override void Emit(CompilationContext ctx)
             {
                 // Basically we expect to see <lvalue> <- <Expression>
-                if(!_isArrayRedimension)
+                if (!_isArrayRedimension)
                 {
-                    if(ctx.DebugBuild)
+                    if (ctx.DebugBuild)
                     {
              
-                        ctx.EmitRaw($"Trace.WriteLine(string.Format(\"       {_destination.Name} <- {{0}}\",");
+                        ctx.EmitRaw(ctx.Indent() + $"Trace.WriteLine(string.Format(\"\\t\\t{_destination.Name} <- {{0}}\",");
                         _expression.Emit(ctx); 
                         ctx.EmitRaw("));\r\n");
                     }
 
                     var lval = _destination.Name;
-                    if(!_destination.Subscripted)
+                    if (!_destination.Subscripted)
                     {
-                        ctx.EmitRaw("frame.ExecutionContext[\"" + lval + "\"] = ");
+                        ctx.EmitRaw(ctx.Indent() + $"{Constants.FrameExecutionContext}[\"{lval}\"] = ");
                     }
                     else
                     {
                         //ctx[lval, destination.Subscripts(ctx)] = expression.Evaluate(ctx);
-                        ctx.EmitRaw("frame.ExecutionContext[\"" + _destination.Name + "\", ");
+                        ctx.EmitRaw(ctx.Indent() + $"{Constants.FrameExecutionContext}[\"{_destination.Name}\", ");
                         _destination.EmitSubscripts(ctx);
                         ctx.EmitRaw("] = ");
 
@@ -58,17 +57,15 @@ namespace INTERCAL.Statements
                     }
 
                     _expression.Emit(ctx);
-                    ctx.EmitRaw(";\n");
+                    ctx.EmitRaw(";\r\n");
                 }
                 else
                 {
-                    ctx.EmitRaw("frame.ExecutionContext.ReDim(\"" + this._destination.Name + "\",");
+                    ctx.EmitRaw(ctx.Indent() + $"{Constants.RuntimeReDim}(\"" + _destination.Name + "\",");
                     _expression.Emit(ctx);
-                    ctx.EmitRaw(");\n");
+                    ctx.EmitRaw(");\r\n");
                 }
-
             }
-
         }
     }
 }

@@ -1,13 +1,59 @@
-using INTERCAL.Compiler;
+using System;
+using System.Collections.Generic;
 using INTERCAL.Runtime;
+using INTERCAL.Compiler;
+using INTERCAL.Compiler.Lexer;
 using INTERCAL.Compiler.Exceptions;
-using intercal.Compiler.Lexer;
 
 namespace INTERCAL.Statements
 {
     public abstract partial class Statement 
 	{
 	#region fields
+		private static readonly Dictionary<Type, int> AbstainSlots = new Dictionary<Type, int>();
+		private static readonly Dictionary<Type, bool> TraditionalDict = new Dictionary<Type, bool>();
+	
+		/// <summary>
+		/// This variable is both assigned to and read from the back end of the compiler. When EmitProgramProlog
+		/// generates the abstain map it will check each statement to see if it is a target of an abstain or a
+		/// reinstate. If it is then it will emit an entry for it in the abstain map and record the entry in
+		/// AbstainSlot, so that later when it emits the abstain guard it can reference the right slot.
+		/// </summary>
+		private int AbstainSlot
+		{
+			get => GetStaticAbstainSlot(GetType());
+			set => SetStaticAbstainSlot(GetType(), value);
+		}
+
+		public virtual int GetAbstainSlot() => AbstainSlot;
+		public virtual void SetAbstainSlot(int value) => AbstainSlot = value;
+		
+		public bool Traditional
+		{
+			get => GetStaticTraditional(GetType());
+			protected set => SetStaticTraditional(GetType(), value);
+		}
+
+		public virtual bool GetTraditional() => Traditional;
+		public virtual void SetTraditional(bool value) => Traditional = value;
+
+		public static int GetStaticAbstainSlot(Type type) => AbstainSlots.TryGetValue(type, out var value) 
+			? value : AbstainSlots[type] = -1;
+		
+		public static void SetStaticAbstainSlot(Type type, int slot)
+		{
+			if (type == typeof(LabelStatement)) throw new CompilationException();
+			AbstainSlots[type] = slot;
+		}
+
+		public static bool GetStaticTraditional(Type type) => TraditionalDict.TryGetValue(type, out var value)
+			? value : TraditionalDict[type] = true;
+
+		protected static void SetStaticTraditional(Type type, bool value)
+		{
+			TraditionalDict[type] = value;
+		}
+
 		/// <summary>
 		/// Every statement remembers its line number in the source file.
 		/// </summary>
@@ -17,19 +63,6 @@ namespace INTERCAL.Statements
 		/// Which statement is this?
 		/// </summary>
 		public int StatementNumber = 0;
-		
-		/// <summary>
-		/// This is used for COME FROM. If this contains something other than -1 then it contains the index of the destination COME FROM.
-		/// </summary>
-		public int Trapdoor = -1;
-		
-		/// <summary>
-		/// A statement may begin with a logical line label enclosed in wax-wane pairs <c>( )</c>. A statement may not
-		/// have more than one label, although it is possible to omit the label entirely. A line label is any integer
-		/// from 1 to 65535, which must be unique within each program. The user is cautioned, however, that many line
-		/// labels between 1000 and 1999 are used in the <see cref="syslib">INTERCAL System Library functions</see>. 
-		/// </summary>
-		public string Label;
 		
 		/// <summary>
 		/// Unrecognizable statements, as noted in section 9, are flagged with a splat <c>*</c> during compilation, and
@@ -49,7 +82,10 @@ namespace INTERCAL.Statements
 		/// abstained from (see section 4.4.9).
 		/// </remarks>
 		public bool BPlease;
-		public bool BEnabled = true;
+		private bool BEnabled = true;
+
+		public virtual bool GetEnabled() => BEnabled;
+		public virtual void SetEnabled(bool value) => BEnabled = value;
 		
 		/// <summary>
 		/// when execution begins, and (2) a number between 0 and 100, preceded by a double-oh-seven (%), which causes
@@ -63,30 +99,24 @@ namespace INTERCAL.Statements
 		/// </summary>
 		public string StatementText;
 
-		/// <summary>
-		/// This variable is both assigned to and read from the back end of the compiler. When EmitProgramProlog
-		/// generates the abstain map it will check each statement to see if it is a target of an abstain or a
-		/// reinstate. If it is then it will emit an entry for it in the abstain map and record the entry in
-		/// AbstainSlot, so that later when it emits the abstain guard it can reference the right slot.
-		/// </summary>
-		public int AbstainSlot = -1;
+		public LabelStatement OuterLabel = null;
+		
 	#endregion
 
 		public abstract void Emit(CompilationContext ctx);
 
 		public static string ReadGroupValue(Scanner s, string group)
 		{
-			if(s.Current.Groups[group].Success)
+			if (s.Current.Groups[group].Success)
 				return s.Current.Groups[group].Value; 
 			
-			throw new ParseException(string.Format(Messages.E017, s.LineNumber + 1));
+			throw new ParseException(string.Format(Messages.E017, Scanner.LineNumber + 1));
 		}
 
-		public static void VerifyToken(Scanner s, string val)
+		public static void AssertToken(Scanner s, string val)
 		{
-			if(s.Current.Value != val)
-				throw new ParseException(string.Format(Messages.E017,s.LineNumber+1));
-
+			if (s.Current.Value != val)
+				throw new ParseException(string.Format(Messages.E017, Scanner.LineNumber + 1));
 		}
 		/// <summary>
 		/// Factory method that takes a line of input and creates a Statement object.
@@ -97,13 +127,14 @@ namespace INTERCAL.Statements
 		public static Statement CreateStatement(Scanner s)
 		{
 			// Remember what line we started on in case the statement spans lines.
-			var line = s.LineNumber;
+			var line = Scanner.LineNumber;
 			var please = false;
 			var enabled = true;
 			var percent = 100;
 
 			Statement retval = null;
 			string label = null;
+			uint labelNum = 0;
 			
 			try
 			{
@@ -111,12 +142,13 @@ namespace INTERCAL.Statements
 				if (s.Current.Groups["label"].Success)
 				{
 					label = ReadGroupValue(s, "label");
+					labelNum = uint.Parse(label.Substring(1, label.Length - 2));
 					s.MoveNext();
 				}
 				var validPrefix = false;
 				
 				// Next we expect either DO, PLEASE, or PLEASE DO
-				if(s.Current.Value == "PLEASE")
+				if (s.Current.Value == "PLEASE")
 				{
 					validPrefix = true;
 					please = true;
@@ -136,8 +168,6 @@ namespace INTERCAL.Statements
 						s.MoveNext();
 					}
 				}
-				
-
 				// Finally the user might put a %50 here.
 				// Note that even if the statement is disabled we need to remember the % on the off chance that the
 				// statement gets enabled later.
@@ -148,10 +178,8 @@ namespace INTERCAL.Statements
 					percent = int.Parse(p);
 					s.MoveNext();
 				}
-
-
-				// Here we parse out the statement prefix. Easier to do it here than break out a separate function.
 				
+				// Here we parse out the statement prefix. Easier to do it here than break out a separate function.
 				while (s.Current.Groups["prefix"].Success)
 				{
 					switch (s.Current.Value)
@@ -177,58 +205,71 @@ namespace INTERCAL.Statements
 				}
 				
 				if (!validPrefix) 
-					throw new ParseException(string.Format(Messages.E017, s.LineNumber + 1));
+					throw new ParseException(string.Format(Messages.E017, Scanner.LineNumber + 1));
 
 				if (s.Current.Groups["statement"].Success)
-				{
 					// We are looking at the beginning of a statement
 					switch (s.Current.Value)
 					{
-						case "ABSTAIN FROM":	retval = new AbstainStatement(s);	break;
-						case "READ OUT":		retval = new ReadOutStatement(s);	break;
-						case "WRITE IN":		retval = new WriteInStatement(s);	break;
-						case "COME FROM":		retval = new ComeFromStatement(s);	break;	
-						case "REINSTATE":		retval = new ReinstateStatement(s);	break;
-						case "STASH":			retval = new StashStatement(s);		break;
-						case "RESUME":			retval = new ResumeStatement(s);	break;
-						case "FORGET":			retval = new ForgetStatement(s);	break;
-						case "IGNORE":			retval = new IgnoreStatement(s);	break;
-						case "REMEMBER":		retval = new RememberStatement(s);	break;
-						case "RETRIEVE":		retval = new RetrieveStatement(s);	break;
-						case "GIVE UP":			retval = new GiveUpStatement();	break;
+						case AbstainStatement.Token:		retval = new AbstainStatement(s);	break;
+						case ReadOutStatement.Token:		retval = new ReadOutStatement(s);	break;
+						case WriteInStatement.Token:		retval = new WriteInStatement(s);	break;
+						case ComeFromStatement.Token:		retval = new ComeFromStatement(s);	break;	
+						case ReinstateStatement.Token:		retval = new ReinstateStatement(s);	break;
+						case StashStatement.Token:			retval = new StashStatement(s);		break;
+						case ResumeStatement.Token:			retval = new ResumeStatement(s);	break;
+						case ForgetStatement.Token:			retval = new ForgetStatement(s);	break;
+						case IgnoreStatement.Token:			retval = new IgnoreStatement(s);	break;
+						case RememberStatement.Token:		retval = new RememberStatement(s);	break;
+						case RetrieveStatement.Token:		retval = new RetrieveStatement(s);	break;
+						case GiveUpStatement.Token:			retval = new GiveUpStatement();		break;
+						case TryAgainStatement.Token:		retval = new TryAgainStatement();	break;
 					}
-				}
 				else if (s.Current.Groups["label"].Success)
 					retval = new NextStatement(s);
 				else if (s.Current.Groups["var"].Success)
 					retval = new CalculateStatement(s);
 				else
-					throw new ParseException(string.Format(Messages.E017, s.LineNumber + 1));
+					throw new ParseException(string.Format(Messages.E017, Scanner.LineNumber + 1));
 
-				//Move on to what should be the beginning of the next statement
+				// Move on to what should be the beginning of the next statement
 				s.MoveNext();
 			}
 			catch (ParseException)
 			{
                 //Console.WriteLine(p.Message);
-				if(retval != null) 
+				if (retval != null) 
 					retval.Splatted = true;
-				else retval = new NonsenseStatement(s);
+				else retval = new NonsenseStatement();
 
 				s.Panic();
 			}
-
-			// Note that even badly formed statements get their labels set.
-			// This way you can still jump to them (though that will cause an exception).
-			if (label != null)
-				retval.Label = label;
 			
 			retval.LineNumber = line;
 			retval.BEnabled = enabled;
 			retval.BPlease = please;
 			retval.Percent = percent;
+			
+			if (TryAgainStatement.TryAgainLine > 0)
+				throw new CompilationException(Messages.E993);
 
-			return retval;
+			if (retval is TryAgainStatement)
+				TryAgainStatement.TryAgainLine = line;
+			
+			// Note that even badly formed statements get their labels set.
+			// This way you can still jump to them (though that will cause an exception).
+			if (label == null || labelNum == 0) return retval;
+			
+			var labelStatement = new LabelStatement
+			{
+				LabelNumber = labelNum,
+				Statement = retval,
+				LineNumber = line
+			};
+
+			retval.OuterLabel = labelStatement;
+
+			return labelStatement;
 		}
 	}
 }

@@ -1,14 +1,17 @@
 using System.Collections.Generic;
 using INTERCAL.Compiler;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 using INTERCAL.Expressions;
 
 namespace INTERCAL.Statements
 {
     public abstract partial class Statement
     {
-        private class ReadOutStatement : Statement
+        public class ReadOutStatement : Statement
         {
+            public const string Token = "READ OUT";
+            public const string GerundName = "READING OUT";
+            
             private readonly List<Expression> _lvals = new List<Expression>();
 
             public ReadOutStatement(Scanner s)
@@ -39,13 +42,13 @@ namespace INTERCAL.Statements
 
                     if (shortCircuitArray)
                     {
-                        ctx.EmitRaw($"frame.ExecutionContext.ReadOut(\"{ae.Name}\");");
+                        ctx.Emit($"frame.ExecutionContext.ReadOut(\"{ae.Name}\");");
                     }
                     else
                     {
-                        ctx.EmitRaw("frame.ExecutionContext.ReadOut(");
+                        ctx.EmitRaw(ctx.Indent() + "frame.ExecutionContext.ReadOut(");
                         lval.Emit(ctx);
-                        ctx.EmitRaw(");");
+                        ctx.EmitRaw(");\r\n");
                     }
                 }
             }

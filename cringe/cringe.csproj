@@ -10,7 +10,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <OutputPath>bin\Debug\</OutputPath>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DefineConstants>TRACE;DEBUG</DefineConstants>
     <DebugSymbols>true</DebugSymbols>
     <Optimize>false</Optimize>
     <DebugType>full</DebugType>
@@ -78,12 +78,9 @@
 <!--    <None Include="app.config" />-->
 <!--  </ItemGroup>-->
   <ItemGroup>
-    <ProjectReference Include="..\intercal.runtime\intercal.runtime.csproj">
-      <Project>{37a22e15-5c33-4a06-81a3-dae690a2cafb}</Project>
-      <Name>intercal.runtime</Name>
-    </ProjectReference>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
+    <ProjectReference Include="..\intercal.runtime\intercal.runtime.csproj" />
   </ItemGroup>
 </Project>

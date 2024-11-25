@@ -6,10 +6,13 @@ namespace INTERCAL.Statements
     {
         public class GiveUpStatement : Statement
         {
+            public const string Token = "GIVE UP";
+            public const string GerundName = "GIVING UP";
+            
             public override void Emit(CompilationContext ctx)
             {
                 //-1 means "unconditional return"
-                ctx.Emit("           frame.ExecutionContext.GiveUp();\r\n");
+                ctx.Emit(Constants.RuntimeGiveUp + "();");
             }
         }
     }

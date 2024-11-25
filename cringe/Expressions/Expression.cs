@@ -1,7 +1,8 @@
 using System;
+using System.Collections.Generic;
 using INTERCAL.Compiler;
 using INTERCAL.Compiler.Exceptions;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 using INTERCAL.Runtime;
 using INTERCAL.Statements;
 
@@ -12,7 +13,7 @@ namespace INTERCAL.Expressions
     /// simplicity these implementations treat everything as an <see cref="int"/> except for some types of expressions
     /// like mingle and select.
     /// </remarks>
-    internal abstract partial class Expression
+    public abstract partial class Expression
     {
         /// <summary>
         /// What does this expression return?
@@ -51,7 +52,7 @@ namespace INTERCAL.Expressions
             //(SUB<expression>)*
             Expression retval;
 			
-            switch(s.Current.Value)
+            switch (s.Current.Value)
             {
                 case "\"": 
                 case "'":
@@ -68,19 +69,23 @@ namespace INTERCAL.Expressions
                 case ";":
                     retval = new ArrayExpression(s, delimeter);
                     break;
+                case "@":
+                case "^":
+                    throw new CompilationException(Messages.E997);
 
                 default:
-                    throw new ParseException($"line {s.LineNumber}: Invalid expression {s.Current.Value}");
+                    throw new ParseException($"line {Scanner.LineNumber}: Invalid expression {s.Current.Value}");
             }
 
             // After we've read a valid expression if the next char is a binary operator then we read the other
             // expression and cojoin it with this one.   
-            if (s.PeekNext.Value != "$" && s.PeekNext.Value != "~") return retval;
+            if (s.PeekNext.Value != "$" && s.PeekNext.Value != "~") 
+                return retval;
             s.MoveNext();
             var op = s.Current.Value;
             s.MoveNext();
 
-            retval = new BinaryExpression(s,op,retval, CreateExpression(s));
+            retval = new BinaryExpression(s, op, retval, CreateExpression(s));
 
             return retval;
         }
@@ -107,5 +112,7 @@ namespace INTERCAL.Expressions
             // by default we do nothing.
             return this; 
         }
+
+        public override string ToString() => "";
     }
 }

@@ -1,11 +1,11 @@
 using INTERCAL.Compiler;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 using INTERCAL.Runtime;
 using INTERCAL.Statements;
 
 namespace INTERCAL.Expressions
 {
-    internal abstract partial class Expression
+    public abstract partial class Expression
     {
         private class QuotedExpression : Expression
         {
@@ -35,7 +35,7 @@ namespace INTERCAL.Expressions
 
                 s.MoveNext();
 
-                Statement.VerifyToken(s, delimeter);
+                Statement.AssertToken(s, delimeter);
 
                 ReturnType = _child.ReturnType;
             }
@@ -87,26 +87,24 @@ namespace INTERCAL.Expressions
             {
                 ctx.EmitRaw("(");
                 if (_unaryOp == null)
-                {
                     _child.Emit(ctx);
-                }
                 else
                 {
                     switch (_unaryOp)
                     {
                         case "v": 
                         case "V":
-                            ctx.EmitRaw("Lib.Or(");
+                            ctx.EmitRaw($"{Constants.LibOr}(");
                             _child.Emit(ctx);
                             ctx.EmitRaw(")");
                             break;
                         case "&":
-                            ctx.EmitRaw("Lib.And(");
+                            ctx.EmitRaw($"{Constants.LibAnd}(");
                             _child.Emit(ctx);
                             ctx.EmitRaw(")");
                             break;
                         case "?":
-                            ctx.EmitRaw("Lib.Xor(");
+                            ctx.EmitRaw($"{Constants.LibXor}(");
                             _child.Emit(ctx);
                             ctx.EmitRaw(")");
                             break;
@@ -120,10 +118,10 @@ namespace INTERCAL.Expressions
             { 
                 var result = _child.Evaluate(ctx);
                 if (_unaryOp == null) return result;
-                if(result < ushort.MaxValue)
+                if (result < ushort.MaxValue)
                 {
                     var tmp = (ushort)result;
-                    switch(_unaryOp)
+                    switch (_unaryOp)
                     {
                         case "v": 
                         case "V":

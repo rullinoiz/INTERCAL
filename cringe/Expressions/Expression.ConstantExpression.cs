@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 using INTERCAL.Compiler;
 using INTERCAL.Compiler.Exceptions;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 using INTERCAL.Runtime;
 using INTERCAL.Statements;
 
 namespace INTERCAL.Expressions
 {
-    internal abstract partial class Expression
+    public abstract partial class Expression
     {
         internal class ConstantExpression : Expression
         {
@@ -51,18 +51,16 @@ namespace INTERCAL.Expressions
                 // Constant expressions are only 16 bits
                 if (Value > ushort.MaxValue)
                     //throw new ParseException(String.Format("line {0}: Constant too big (#{0})", s.LineNumber, Value));
-                    throw new CompilationException(Messages.E275);
+                    throw new CompilationException(Messages.E017);
 				
                 ReturnType = typeof(ushort);
             }
 
-            public override uint Evaluate(ExecutionContext ctx) { return Value; }
+            public override uint Evaluate(ExecutionContext ctx) => Value; 
 			
-            public override void Emit(CompilationContext ctx)
-            {
-                ctx.EmitRaw(Value.ToString());
-            }
+            public override void Emit(CompilationContext ctx) => ctx.EmitRaw(Value.ToString());
 
+            public override string ToString() => Value.ToString();
         }
     }
 }

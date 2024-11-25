@@ -5,7 +5,9 @@ using System.Diagnostics;
 using System.Runtime.Remoting.Messaging;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
+using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace INTERCAL.Runtime
 {
@@ -155,7 +157,7 @@ namespace INTERCAL.Runtime
         /// <summary>
         /// Program execution terminated via a <c>RESUME</c> statement instead of <c>GIVE UP</c>.
         /// </summary>
-        public const string E632 = "E632 THE NEXT STACK RUPTURES.  ALL DIE.  OH, THE EMBARRASSMENT!";
+        public const string E632 = "E632 THE NEXT STACK RUPTURES. ALL DIE. OH, THE EMBARRASSMENT!";
         
         /* DONE */
         /// <summary>
@@ -179,7 +181,7 @@ namespace INTERCAL.Runtime
         #region INTERCAL.NEXT and C-INTERCAL
         
         /// <summary>
-        /// You tried to use a C-INTERCAL extension with the 'traditional' flag on.
+        /// You tried to use a non-standard INTERCAL-72 statement with the 'traditional' flag on.
         /// </summary>
         public const string E111 = "E111 COMMUNIST PLOT DETECTED, COMPILER IS SUICIDING";
         
@@ -191,12 +193,12 @@ namespace INTERCAL.Runtime
         /// <summary>
         /// Out of stash space.
         /// </summary>
-        public const string E222 = "222 BUMMER, DUDE!";
+        public const string E222 = "E222 BUMMER, DUDE!";
         
         /// <summary>
         /// Too many variables.
         /// </summary>
-        public const string E333 = "333 YOU CAN'T HAVE EVERYTHING, WHERE WOULD YOU PUT IT?";
+        public const string E333 = "E333 YOU CAN'T HAVE EVERYTHING, WHERE WOULD YOU PUT IT?";
         
         /// <summary>
         /// A COME FROM statement references a non-existent line label.
@@ -232,11 +234,16 @@ namespace INTERCAL.Runtime
         /// Can't open C output file.
         /// </summary>
         public const string E888 = "E888 I HAVE NO FILE AND I MUST SCREAM";
+
+        /// <summary>
+        /// <c>TRY AGAIN</c>, if used, is not at the very end of the file.
+        /// </summary>
+        public const string E993 = "E993 I GAVE UP LONG AGO";
         
         /// <summary>
-        /// Can't open C skeleton file.
+        /// An expression uses an operator that only makes sense in TriINTERCAL, which is base 3 and above.
         /// </summary>
-        public const string E999 = "E999 NO SKELETON IN MY CLOSET, WOE IS ME!";
+        public const string E997 = "E997 ILLEGAL POSSESSION OF A CONTROLLED UNARY OPERATOR";
         
         /* DONE */
         /// <summary>
@@ -245,9 +252,9 @@ namespace INTERCAL.Runtime
         public const string E998 = "E998 EXCUSE ME, YOU MUST HAVE ME CONFUSED WITH SOME OTHER COMPILER";
         
         /// <summary>
-        /// Illegal possession of a controlled unary operator.
+        /// Can't open C skeleton file.
         /// </summary>
-        public const string E997 = "E997 ILLEGAL POSSESSION OF A CONTROLLED UNARY OPERATOR.";
+        public const string E999 = "E999 NO SKELETON IN MY CLOSET, WOE IS ME!";
         
         #endregion
 
@@ -372,15 +379,14 @@ namespace INTERCAL.Runtime
         // INTERCAL.Runtime.Lib, but the rest basically just implement stash/retrieve
         // and ignore/remember.
         void ReDim(string var, int[] dimensions);
-        void Stash(string var);
-        void Retrieve(string var);
-        void Ignore(string label);
-        void Remember(string label);
+        void Stash(params string[] vars);
+        void Retrieve(params string[] vars);
+        void Ignore(params string[] labels);
+        void Remember(params string[] labels);
     }
     
     [Serializable]
-    public class ExecutionContext : AsyncDispatcher,
-        ILogicalThreadAffinative, IExecutionContext
+    public class ExecutionContext : AsyncDispatcher, ILogicalThreadAffinative, IExecutionContext
     {
         #region Fields and constuctors
 
@@ -427,7 +433,7 @@ namespace INTERCAL.Runtime
             get
             {
                 if (!_variables.ContainsKey(varname))
-                    throw new IntercalException(Messages.E200 + " (" + varname + ")");
+                    Lib.Fail(Messages.E200 + " (" + varname + ")");
 
                 var v = GetVariable(varname);
 
@@ -559,6 +565,12 @@ namespace INTERCAL.Runtime
 
             public void ReDim(int[] subscripts)
             {
+                foreach (var i in subscripts)
+                {
+                    if (i == 0) 
+                        Lib.Fail(Messages.E240);
+                }
+                
                 var lbounds = new int[subscripts.Length];
 
                 for (var i = 0; i < lbounds.Length; i++)
@@ -574,7 +586,9 @@ namespace INTERCAL.Runtime
                 get
                 {
                     try
-                    { return (uint)_values.GetValue(indices); }
+                    {
+                        return (uint)_values.GetValue(indices);
+                    }
                     catch
                     {
                         Lib.Fail(Messages.E241);
@@ -589,7 +603,7 @@ namespace INTERCAL.Runtime
                     }
                     catch (Exception e)
                     {
-                        Console.Write($"{e.Message}var=\"{Name}\" val=\"{value}\" indices={{");
+                        Console.Write($"{e.Message} var=\"{Name}\" val=\"{value}\" indices={{");
                         foreach (var i in indices)
                             Console.Write(i);
                         Console.WriteLine("}");
@@ -656,7 +670,8 @@ namespace INTERCAL.Runtime
         public void Run(IntercalThreadProc proc)
         {
             StartProc sp = Evaluate;
-            sp.BeginInvoke(proc, 0, ar => sp.EndInvoke(ar), null);
+            Task.Factory.StartNew(() => sp(proc, 0), TaskCreationOptions.AttachedToParent);
+            //sp.BeginInvoke(proc, 0, ar => sp.EndInvoke(ar), null);
 
             lock (SyncLock)
             {
@@ -665,21 +680,24 @@ namespace INTERCAL.Runtime
                     Monitor.Wait(SyncLock);
                 }
             }
-
+            
             if (CurrentException != null)
             {
                 throw CurrentException;
             }
         }
+        
         public bool Evaluate(IntercalThreadProc proc, int label)
         {
             var frame = new ExecutionFrame(this, proc, label);
 
             lock (SyncLock)
             {
+                if (NextingStack.Count() >= 80)
+                    Lib.Fail(Messages.E123);
                 NextingStack.Push(frame);
             }
-
+            
             var result = frame.Start();
             return result;
         }
@@ -696,7 +714,7 @@ namespace INTERCAL.Runtime
         /// </remarks>
         /// <param name="varname">INTERCAL variable name.</param>
         /// <returns>An INTERCAL variable.</returns>
-        [Pure] private IVariable GetVariable(string varname)
+        private IVariable GetVariable(string varname)
         {
             IVariable retval = null;
 
@@ -711,7 +729,6 @@ namespace INTERCAL.Runtime
                         _variables[varname] = v;
                         retval = v;
                     }
-
                     break;
                 }
                 case ',':
@@ -723,7 +740,6 @@ namespace INTERCAL.Runtime
                         _variables[varname] = v;
                         retval = v;
                     }
-
                     break;
                 }
                 default:
@@ -747,32 +763,45 @@ namespace INTERCAL.Runtime
             if (GetVariable(var) is ArrayVariable v)
                 v.ReDim(dimensions);
             else
-                Lib.Fail(Messages.E241);
+                Lib.Fail(Messages.E000);
         }
 
-        public void Stash(string var)
+        public void Stash(params string[] vars)
         {
-            GetVariable(var).Stash();
+            foreach (var v in vars) GetVariable(v).Stash();
         }
 
-        public void Retrieve(string var)
+        public void Retrieve(params string[] vars)
         {
-            GetVariable(var).Retrieve();
+            foreach (var v in vars) GetVariable(v).Retrieve();
         }
         #endregion
 
         #region IGNORE/REMEMBER
         /// <remarks>
-        /// <c>IGNORE</c> / <c>REMEMBER</c> are global because variables are visible everywhere. If
-        /// module A <see cref="Ignore"/>s a variable and passes it to B any assigns that B makes will be ignored.
-        /// This means B can ignore and return back to A and A has no good way to even determine if any given
-        /// variable is currently ignored.
+        /// <c>IGNORE</c> / <c>REMEMBER</c> are global because variables are visible everywhere. If module A
+        /// <c>IGNORE</c>s a variable and passes it to B any assigns that B makes will be ignored. This means B can
+        /// ignore and return back to A and A has no good way to even determine if any given variable is currently
+        /// ignored.
         /// </remarks>
-        /// <param name="label">A label in an INTERCAL program.</param>
-        public void Ignore(string label) => GetVariable(label).Enabled = false;
-        
+        /// <param name="labels">A variable in an INTERCAL program.</param>
+        public void Ignore(params string[] labels)
+        {
+            foreach (var label in labels)
+            {
+                GetVariable(label).Enabled = false;
+            }
+        }
+
         /// <inheritdoc cref="Ignore"/>
-        public void Remember(string label) => GetVariable(label).Enabled = true;
+        public void Remember(params string[] labels)
+        {
+            foreach (var label in labels)
+            {
+                GetVariable(label).Enabled = true;
+            }
+        }
+
         #endregion
 
         #region READ/WRITE
@@ -851,7 +880,7 @@ namespace INTERCAL.Runtime
                 var input = TextIn.ReadLine();
                 if (input == null)
                 {
-                    Lib.Fail(Messages.E579);
+                    Lib.Fail(string.Format(Messages.E579, input));
                     return; // Lib.Fail throws an exception
                 }
                 try
@@ -901,28 +930,25 @@ namespace INTERCAL.Runtime
         /// An example taken from Section 3.4.1 of the INTERCAL manual:
         /// <code>
         /// DO :1 &lt;- #65535$#0
-        /// NOTE THAT :1 IS EQUAL TO 2863311530 IN DECIMAL, OR 101010... IN BINARY
+        /// DO NOTE THAT :1 IS EQUAL TO 2863311530 IN DECIMAL, OR 101010... IN BINARY
         /// </code>
         /// <code>
         /// DO :1 &lt;- #0$#65535
-        /// NOTE THAT :1 IS EQUAL TO 1431655765 IN DECIMAL, OR 010101... IN BINARY
+        /// DO NOTE THAT :1 IS EQUAL TO 1431655765 IN DECIMAL, OR 010101... IN BINARY
         /// </code>
         /// </example>
         /// <param name="men">The first value. The first bit of this value will appear first.</param>
         /// <param name="ladies">The second value. The first bit of this value will appear second.</param>
         /// <exception cref="IntercalException">
-        /// Throws <see cref="Messages.E533"/> if either operand is greater than 65535.
+        /// Throws <see cref="Messages.E533"/> if the output is greater than the unsigned 32-bit integer maximum.
         /// </exception>
         /// <returns>The two mingled 16-bit numbers as a 32-bit numbers.</returns>
         [Pure] public static uint Mingle(uint men, uint ladies)
         {
-            if (men > ushort.MaxValue || ladies > ushort.MaxValue) 
-                throw new IntercalException(Messages.E533);
-            
             var a = (ushort)men;
             var b = (ushort)ladies;
 
-            uint retval = 0;
+            ulong retval = 0;
 
             for (var i = 15; i >= 0; i--)
             {
@@ -932,8 +958,11 @@ namespace INTERCAL.Runtime
                 if ((b & (ushort)Bitflags[i]) != 0)
                     retval |= Bitflags[2 * i];
             }
+            
+            if (retval > uint.MaxValue)
+                Fail(Messages.E533);
 
-            return retval;
+            return (uint)retval;
         }
         
         /// <summary>
@@ -982,7 +1011,6 @@ namespace INTERCAL.Runtime
 
             return retval;
         }
-        
         
         [Pure] private static uint Rotate(uint val)
         {

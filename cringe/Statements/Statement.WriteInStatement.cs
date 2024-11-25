@@ -1,13 +1,16 @@
 using System.Collections.Generic;
 using INTERCAL.Compiler;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 
 namespace INTERCAL.Statements
 {
     public abstract partial class Statement
     {
-        private class WriteInStatement : Statement
+        public class WriteInStatement : Statement
         {
+            public const string Token = "WRITE IN";
+            public const string GerundName = "WRITING IN";
+            
             private readonly List<LValue> _lvals = new List<LValue>();
 
             public WriteInStatement(Scanner s)
@@ -26,7 +29,7 @@ namespace INTERCAL.Statements
             {
                 foreach (var lval in _lvals)
                 {
-                    ctx.Emit("frame.ExecutionContext.WriteIn(\"" + lval.Name + "\")");
+                    ctx.Emit($"{Constants.RuntimeWriteIn}(\"{lval.Name}\");");
                 }
             }
         }

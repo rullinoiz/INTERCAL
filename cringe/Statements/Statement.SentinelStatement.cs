@@ -9,10 +9,7 @@ namespace INTERCAL.Statements
             // ReSharper disable once UnusedMember.Global
             public string Target = null;
 
-            public override void Emit(CompilationContext ctx)
-            {
-                ctx.Emit("throw new IntercalException(Messages.E633)");
-            }
+            public override void Emit(CompilationContext ctx) => ctx.Emit("throw new IntercalException(Messages.E633)");
         }
     }
 }

@@ -1,5 +1,5 @@
 using INTERCAL.Compiler;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 using INTERCAL.Expressions;
 
 namespace INTERCAL.Statements
@@ -8,6 +8,9 @@ namespace INTERCAL.Statements
     {
         public class ForgetStatement : Statement
         {
+            public const string Token = "FORGET";
+            public const string GerundName = "FORGETING";
+            
             private readonly Expression _exp;
 
             public ForgetStatement(Scanner s)
@@ -32,12 +35,12 @@ namespace INTERCAL.Statements
                 */
                 if (ctx.DebugBuild)
                 {
-                    ctx.EmitRaw("Trace.WriteLine(\"       Forgetting ");
+                    ctx.EmitRaw(ctx.Indent() + "Trace.WriteLine(\"\\tForgetting ");
                     _exp.Emit(ctx);
                     ctx.EmitRaw("\");\r\n");
                 }
 
-                ctx.EmitRaw("frame.ExecutionContext.Forget(");
+                ctx.EmitRaw(ctx.Indent() + $"{Constants.RuntimeForget}(");
                 _exp.Emit(ctx);
                 ctx.EmitRaw(");\r\n");
             }

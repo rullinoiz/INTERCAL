@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using INTERCAL.Compiler.Exceptions;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 using INTERCAL.Expressions;
 using INTERCAL.Runtime;
 using INTERCAL.Statements;
@@ -25,7 +25,7 @@ namespace INTERCAL.Compiler
 			// first read the basic lval...
 			Name = Statement.ReadGroupValue(s, "var");
 			if (s.Current.Value == "#")
-				throw new ParseException($"line {s.LineNumber}: Constants cannot be used as lvalues ");
+				throw new ParseException($"line {Scanner.LineNumber}: Constants cannot be used as lvalues ");
 			
 			s.MoveNext();
 			Name += Statement.ReadGroupValue(s, "digits");

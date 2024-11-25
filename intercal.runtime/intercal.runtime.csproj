@@ -16,7 +16,7 @@
 <!--    <CheckForOverflowUnderflow>false</CheckForOverflowUnderflow>-->
 <!--    <ConfigurationOverrideFile>-->
 <!--    </ConfigurationOverrideFile>-->
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DefineConstants>TRACE;DEBUG</DefineConstants>
 <!--    <DocumentationFile>-->
 <!--    </DocumentationFile>-->
 <!--    <DebugSymbols>true</DebugSymbols>-->
@@ -61,7 +61,7 @@
 <!--      <SubType>Code</SubType>-->
 <!--    </Compile>-->
     <Compile Update="twisty.cs" />
-    <Compile Update="sicklib.cs">
+    <Compile Update="sicklib.cs.back2">
       <SubType>Code</SubType>
     </Compile>
     <Compile Update="utils.cs">

@@ -11,6 +11,7 @@ namespace INTERCAL.Compiler
 {
     internal static class Compiler
     {
+        
         private static string PrepareSource(IEnumerable<string> files)
         {
             // First verify all files exist and have the right extension...
@@ -55,6 +56,8 @@ namespace INTERCAL.Compiler
             {
                 throw new CompilationException(Messages.E888, e);
             }
+            
+            if (!c.Compile) return;
 
             var compiler = "csc";
             var userSpecifiedCompilerPath = ConfigurationManager.AppSettings["compilerPath"];
@@ -66,7 +69,7 @@ namespace INTERCAL.Compiler
 
             if (c.DebugBuild)
             {
-                compilerArgs = "/debug+ /d:TRACE ";
+                compilerArgs = "/debug+ ";
             }
 
             switch (c.TypeOfAssembly)
@@ -85,7 +88,7 @@ namespace INTERCAL.Compiler
 
             var needsComma = false;
 
-            compilerArgs += (" /r:");
+            compilerArgs += " /r:";
 
             //We need to pass references down to the C# compiler
             if (c.References != null)
@@ -167,11 +170,13 @@ namespace INTERCAL.Compiler
 
             "\r\n                      - INPUT FILES -\r\n" +
             "/r:<file list>          Reference metadata from the specified assembly files\r\n" +
+            "/n                      Simply output the C# file" +
 
             "\r\n                      - CODE GENERATION -\r\n" +
             "/debug+                 Emit debugging information\r\n" +
             "/base:<class_name>      Use specified class as base class (e.g. MarshalByRefObject)\r\n" +
             "/public:<label_list>    Only emit stubs for the specified labels (ignored for .exe builds)\r\n" +
+            "/traditional            Enforces the INTERCAL-72 standard operations." +
 
             "\r\n                      - ERRORS AND WARNINGS -\r\n" +
             "/b                      Reduce probably of E774 to zero.\r\n" +
@@ -182,16 +187,11 @@ namespace INTERCAL.Compiler
 
         public static void Main(string[] args)
         {
-
-            Console.WriteLine(EBanner,
-                Assembly.GetExecutingAssembly().GetName().Version,
-                Environment.Version);
-
+            Console.WriteLine(EBanner, Assembly.GetExecutingAssembly().GetName().Version, Environment.Version);
             Trace.Listeners.Clear();
 
             try
             {
-
                 switch (args.Length)
                 {
                     case 0:
@@ -203,7 +203,7 @@ namespace INTERCAL.Compiler
                 }
 
                 // Parse arguments...
-                var c = new CompilationContext();
+                var c = new CompilationContext(args);
                 var sources = new List<string>();
 
                 foreach (var arg in args)
@@ -224,7 +224,7 @@ namespace INTERCAL.Compiler
                         // to implicitly make calls into another component. 
                         else if (arg.IndexOf("r:", StringComparison.Ordinal) == 1)
                         {
-                            var refs = (arg.Substring(3)).Split(',');
+                            var refs = arg.Substring(3).Split(',');
                             c.References = new ExportList[refs.Length + 1];
 
                             // For every referenced assembly we need to go drag out the labels exported
@@ -267,12 +267,21 @@ namespace INTERCAL.Compiler
                             c.BaseClass = arg.Substring(6);
                             Trace.WriteLine($"Setting base type to {c.BaseClass}");
                         }
+                        else if (arg.IndexOf("traditional", StringComparison.Ordinal) == 1)
+                        {
+                            c.Traditional = true;
+                            Trace.WriteLine("Enabled traditional flag");
+                        }
 
                         // /b reduces the probability of E774 to zero.
                         else if (arg.IndexOf("b", StringComparison.Ordinal) == 1)
                         {
                             Trace.WriteLine("(Intentional) Bugs disabled");
                             c.Buggy = false;
+                        } 
+                        else if (arg.IndexOf("n", StringComparison.Ordinal) == 1)
+                        {
+                            c.Compile = false;
                         }
                     }
                     else
@@ -280,7 +289,7 @@ namespace INTERCAL.Compiler
                 }
 
                 // Auto-include standard lib if it hasn't been referenced already
-                if (c.References == null)
+                if (c.References == null && c.Compile)
                 {
                     c.References = new ExportList[1];
                     var file = FindFile("intercal.runtime.dll");
@@ -339,13 +348,12 @@ namespace INTERCAL.Compiler
             if (baseDir != null && File.Exists(Path.Combine(baseDir, path))) 
                 return Path.Combine(baseDir, path);
             throw new IntercalException(Messages.E2002);
-
         }
 
         private static void Abort(string error)
         {
             Console.WriteLine(error);
-            Console.WriteLine("     CORRECT SOURCE AND RESUBMIT");
+            Console.WriteLine("\tCORRECT SOURCE AND RESUBMIT");
         }
     }
 }

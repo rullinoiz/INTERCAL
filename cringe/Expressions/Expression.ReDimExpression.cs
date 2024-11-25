@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using INTERCAL.Compiler;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 using INTERCAL.Runtime;
 
 namespace INTERCAL.Expressions
 {
-    internal abstract partial class Expression
+    public abstract partial class Expression
     {
         /// <summary>
         /// This is a "special" expression that holds the result of an array redimension. It doesn't return a
@@ -52,14 +52,19 @@ namespace INTERCAL.Expressions
             {
                 ctx.EmitRaw("new int[] {");
 
+                var snideRemark = false;
                 for (var i = 0; i < _dimensions.Count; i++)
                 {
                     //retval[i] = (int)(dimensions[i] as Expression).Evaluate(ctx);
                     ctx.EmitRaw("(int)");
                     _dimensions[i].Emit(ctx);
-                    if (i < _dimensions.Count-1)
+                    if (_dimensions[i] is ConstantExpression c && c.Value == 0) snideRemark = true;
+                    
+                    if (i < _dimensions.Count - 1)
                         ctx.EmitRaw(",");
                 }
+                if (snideRemark)
+                    Console.WriteLine(CompilationWarning.W239 + $"\n\tON THE WAY TO {Scanner.LineNumber}");
 
                 ctx.EmitRaw("}");
             }

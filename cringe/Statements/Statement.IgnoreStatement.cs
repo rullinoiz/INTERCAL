@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using INTERCAL.Compiler;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 
 namespace INTERCAL.Statements
 {
@@ -8,11 +8,14 @@ namespace INTERCAL.Statements
     {
         public class IgnoreStatement : Statement
         {
+            public const string Token = "IGNORE";
+            public const string GerundName = "IGNORING";
+            
             protected readonly List<LValue> Targets = new List<LValue>();
 
             public IgnoreStatement(Scanner s)
             {
-                for(;;)
+                while(true)
                 {
                     s.MoveNext();
                     var target = new LValue(s);
@@ -27,7 +30,7 @@ namespace INTERCAL.Statements
             {
                 foreach (var lval in Targets)
                 {
-                    ctx.Emit("frame.ExecutionContext.Ignore(\"" + lval.Name+ "\")");
+                    ctx.Emit($"{Constants.RuntimeIgnore}(\"{lval.Name}\");");
                 }
             }
 

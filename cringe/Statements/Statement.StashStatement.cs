@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using INTERCAL.Compiler;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 
 namespace INTERCAL.Statements
 {
@@ -8,6 +8,9 @@ namespace INTERCAL.Statements
     {
         public class StashStatement : Statement
         {
+            public const string Token = "STASH";
+            public const string GerundName = "STASHING";
+            
             protected readonly List<LValue> Lvals = new List<LValue>();
 
             public StashStatement(Scanner s)
@@ -27,11 +30,25 @@ namespace INTERCAL.Statements
 
             public override void Emit(CompilationContext ctx)
             {
+                var first = true;
+                var labelList = string.Empty;
+                var labelArgs = string.Empty;
                 foreach (var lval in Lvals)
                 {
-                    ctx.Emit($"Trace.WriteLine(\"       Stashing {lval.Name}\");");
-                    ctx.Emit("frame.ExecutionContext.Stash(\"" + lval.Name+ "\")");
+                    if (first)
+                    {
+                        labelArgs += $"\"{lval.Name}\"";
+                        labelList += lval.Name;
+                        first = false;
+                    }
+                    else
+                    {
+                        labelArgs += $", \"{lval.Name}\"";
+                        labelList += " + " + lval.Name;
+                    }
                 }
+                ctx.Emit($"Trace.WriteLine(\"\\tStashing {labelList}\");");
+                ctx.Emit($"{Constants.RuntimeStash}({labelArgs});");
             }
         }
     }

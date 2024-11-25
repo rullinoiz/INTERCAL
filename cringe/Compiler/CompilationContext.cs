@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using INTERCAL.Compiler.Lexer;
 using INTERCAL.Expressions;
+using INTERCAL.Extensions;
 using INTERCAL.Statements;
 
 namespace INTERCAL.Compiler
@@ -13,12 +15,19 @@ namespace INTERCAL.Compiler
             Library, Exe, Winexe
         };
 
+        public readonly string[] Arguments;
+
         private readonly StringBuilder _source = new StringBuilder();
         
         /// <summary>
-        /// This map is used to map abstains to labels in the runtime.
-        /// The compiler is smart enough to only emit abstain guards for statements that might possibly be abstained.
-        /// At least I think it is - maybe that's a source of bugs... 
+        /// Whether or not to compile the transpiled INTERCAL program (/n is used to transpile the magic library).
+        /// </summary>
+        public bool Compile = true;
+        
+        /// <summary>
+        /// This map is used to map abstains to labels in the runtime. The compiler is smart enough to only emit abstain
+        /// guards for statements that might possibly be abstained. At least I think it is - maybe that's a source of
+        /// bugs... 
         /// </summary>
         public static readonly Dictionary<string, Type> AbstainMap = new Dictionary<string, Type>();
 
@@ -46,27 +55,42 @@ namespace INTERCAL.Compiler
         public ExportList[] References;
         
         /// <summary>
-        ///Which labels in this assembly will be turned into public entry points?
+        /// Which labels in this assembly will be turned into public entry points?
         /// </summary>
         public Dictionary<string, bool> PublicLabels;
 
         /// <summary>
-        /// public PRNG, mostly used for E774
+        /// Public PRNG, mostly used for <see cref="INTERCAL.Runtime.Messages.E774"/>.
         /// </summary>
         public readonly Random Random = new Random();
 
         /// <summary>
-        /// if this is set to false then E774 is never emitted
+        /// If this is set to false then <see cref="INTERCAL.Runtime.Messages.E774"/> is never emitted.
         /// </summary>
         public bool Buggy = true;
         
         /// <summary>
-        /// if this program references external instance classes I don't want to create a new one at every method call.
-        /// Instead this compiler will emit properties that lazy-instantiate the requested classes.
-        /// This List is filled up by NextStatement::EmitExternalCall and is then used to generate the private properties.
+        /// Enforces the INTERCAL-72 standard operations.
+        /// </summary>
+        public bool Traditional = false;
+        
+        /// <summary>
+        /// How many tabs we are inside of? (to make the output look pretty)
+        /// </summary>
+        private int _depth;
+        
+        /// <summary>
+        /// If this program references external instance classes I don't want to create a new one at every method call.
+        /// Instead this compiler will emit properties that lazy-instantiate the requested classes. This List is filled
+        /// up by NextStatement::EmitExternalCall and is then used to generate the private properties.
         /// </summary>
         public readonly List<string> ExternalReferences = new List<string>();
-
+        
+        public CompilationContext(string[] args)
+        {
+            Arguments = args;
+        }
+        
         static CompilationContext()
         {
             AbstainMap["NEXTING"] = typeof(Statement.NextStatement);
@@ -80,19 +104,42 @@ namespace INTERCAL.Compiler
             AbstainMap["REINSTATING"] = typeof(Statement.ReinstateStatement);
             AbstainMap["CALCULATING"] = typeof(Statement.CalculateStatement);
             AbstainMap["COMING FROM"] = typeof(Statement.ComeFromStatement);
+            AbstainMap["READING OUT"] = typeof(Statement.ReadOutStatement);
+            AbstainMap["WRITING IN"] = typeof(Statement.WriteInStatement);
+            AbstainMap["TRYING AGAIN"] = typeof(Statement.TryAgainStatement);
         }
 
-        public override string ToString() { return _source.ToString(); }
+        public override string ToString() => _source.ToString();
 
-        public void Emit(string s)
+        public string Indent() => '\t'.Multiply(_depth);
+
+        public CompilationContext BeginBlock()
         {
-            _source.Append(s);
-            _source.Append(";\r\n");
+            _source.Append(Indent() + "{");
+            _source.Append("\r\n");
+            _depth++;
+            return this;
         }
 
-        public void EmitRaw(string s)
+        public CompilationContext EndBlock()
+        {
+            _depth--;
+            _source.Append(Indent() + "}");
+            _source.Append("\r\n");
+            return this;
+        }
+
+        public CompilationContext Emit(string s)
+        {
+            _source.Append(Indent() + s);
+            _source.Append("\r\n");
+            return this;
+        }
+
+        public CompilationContext EmitRaw(string s)
         {
             _source.Append(s);
+            return this;
         }
 
         public static void Warn(string s)

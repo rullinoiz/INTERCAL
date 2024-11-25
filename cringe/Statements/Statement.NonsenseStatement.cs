@@ -1,5 +1,5 @@
 using INTERCAL.Compiler;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 
 namespace INTERCAL.Statements
 {
@@ -7,9 +7,9 @@ namespace INTERCAL.Statements
     {
         private class NonsenseStatement : Statement
         {
-            public NonsenseStatement(Scanner s)
+            public NonsenseStatement()
             {
-                LineNumber = s.LineNumber;
+                LineNumber = Scanner.LineNumber;
                 Splatted = true; 
             }
 
@@ -17,8 +17,7 @@ namespace INTERCAL.Statements
             {
                 // That showoffy jerk Donald Knuth just *had* to put a quote in a multiline comment so now I have to fix those up too.
                 var fixedUp = StatementText.Replace("\"", "\\\"").Replace("\r\n", "\" + \r\n\"");
-                ctx.EmitRaw("Lib.Fail(\""+ LineNumber + " * " + fixedUp);
-                ctx.EmitRaw("\");\n");
+                ctx.Emit($"Lib.Fail(\"{LineNumber} * {fixedUp}\");");
             }
         }
     }

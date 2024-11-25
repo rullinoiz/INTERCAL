@@ -25,6 +25,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace INTERCAL.Runtime
 { 
@@ -52,18 +53,21 @@ namespace INTERCAL.Runtime
 
         public bool Start()
         {
-            // Note that the only reason we need to spin up a new threadis the lurking possiblity of FORGET. If we could
+            // Note that the only reason we need to spin up a new thread is the lurking possiblity of FORGET. If we could
             // guarantee that the function referenced by this.Proc never does a FORGET then we could just make a direct
             // function call.
 
             var myThread = new IntercalThreadProc(InternalThreadProc);
-            myThread.BeginInvoke(this, ar => myThread.EndInvoke(ar), null);
+            Task.Factory.StartNew(() => myThread(this), TaskCreationOptions.AttachedToParent);
 
             lock (_syncLock)
             {
-                while (!_complete) { Monitor.Wait(_syncLock); }
+                while (!_complete)
+                {
+                    Monitor.Wait(_syncLock);
+                }
             }
-
+            
             return _result;
         }
 
@@ -76,7 +80,10 @@ namespace INTERCAL.Runtime
             _result = result;
             _complete = true;
 
-            lock (_syncLock) { Monitor.Pulse(_syncLock); }
+            lock (_syncLock)
+            {
+                Monitor.Pulse(_syncLock);
+            }
         }
         private void InternalThreadProc(ExecutionFrame ctx)
         {
@@ -96,7 +103,7 @@ namespace INTERCAL.Runtime
         protected bool Done;
         protected readonly object SyncLock = new object();
         protected Exception CurrentException { get; private set; }
-        protected readonly Stack<ExecutionFrame> NextingStack = new Stack<ExecutionFrame>();
+        protected readonly Stack<ExecutionFrame> NextingStack = new Stack<ExecutionFrame>(80);
 
         protected delegate bool StartProc(IntercalThreadProc proc, int label);
         
@@ -104,8 +111,7 @@ namespace INTERCAL.Runtime
         /// Depth must be zero. We depend on the compiler to ensure that resume #0 is ignored as a no-op. The top of the
         /// stack is the frame that is waiting for the current thread to return.
         /// </remarks>
-        /// <param name="depth"></param>
-        /// <exception cref="IntercalException">Throws <see cref="Messages.E632"/></exception>
+        /// <exception cref="IntercalException">Throws <see cref="Messages.E632"/>.</exception>
         public void Resume(uint depth)
         {
             if (depth <= NextingStack.Count)
@@ -146,6 +152,7 @@ namespace INTERCAL.Runtime
                 throw new IntercalException(Messages.E632);
             }
         }
+        
         public void Forget(int depth)
         {
             lock (SyncLock)
@@ -165,9 +172,7 @@ namespace INTERCAL.Runtime
             lock (SyncLock)
             {
                 while (NextingStack.Count > 0)
-                {
                     NextingStack.Pop().Abort();
-                }
 
                 Done = true;
                 Monitor.Pulse(SyncLock);
@@ -181,7 +186,7 @@ namespace INTERCAL.Runtime
             var items = NextingStack.ToList();
             sb.Append($"[{Thread.CurrentThread.ManagedThreadId}] Nexting Stack:\r\n");
             foreach (var frame in items)
-                sb.Append($"       {frame.Proc.Target.GetType().Name}.{frame.Proc.Method.Name}({frame.Label})\r\n");
+                sb.Append($"\t\t{frame.Proc.Target.GetType().Name}.{frame.Proc.Method.Name}({frame.Label})\r\n");
             Debug.WriteLine(sb.ToString());
         }
         
@@ -194,7 +199,7 @@ namespace INTERCAL.Runtime
             // PLEASE DO NOTE: The topmost label is misleading as that is the label that the most recent DO NEXT jumped
             // to. It is NOT the most recent label executed.
             foreach (var frame in list)
-                sb.Append($"   at {frame.Proc.Target.GetType().Name}.{frame.Proc.Method.Name}({frame.Label})\r\n");
+                sb.Append($"\tat {frame.Proc.Target.GetType().Name}.{frame.Proc.Method.Name}({frame.Label})\r\n");
 
             CurrentException = new IntercalException(sb.ToString(), e);
             GiveUp();

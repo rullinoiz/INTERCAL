@@ -1,14 +1,14 @@
 using System.Text.RegularExpressions;
 using INTERCAL.Compiler.Exceptions;
 
-namespace intercal.Compiler.Lexer
+namespace INTERCAL.Compiler.Lexer
 {
     /// <summary>
     /// This is the worlds lamest input scanner
     /// </summary>
     public class Scanner
     {
-        public int LineNumber = 1;
+        public static int LineNumber = 1;
         private int _newlines;
 
         private Scanner(Match m)
@@ -28,7 +28,7 @@ namespace intercal.Compiler.Lexer
 
         public void MoveNext()
         {
-            // The only complication here is thatmwe swallow "\n" internally so the expression parsers never see it.
+            // The only complication here is that we swallow "\n" internally so the expression parsers never see it.
             Current = PeekNext;
             LineNumber += _newlines;
             _newlines = 0;
@@ -61,12 +61,14 @@ namespace intercal.Compiler.Lexer
         {
             const string tokens = @"(?<label>(\(\d+\)))|(?<digits>(\d+))|" +
                                   "(?<prefix>(PLEASE|DO|N'T|NOT|%))|" +
-                                  "(?<gerund>(READING OUT|WRITING IN|COMING FROM|ABSTAINING|REINSTATING|NEXTING|STASHING|RESUMING|FORGETTING|IGNORING|REMEMBERING|RETRIEVING|CALCULATING))|" +
-                                  "(?<statement>(READ OUT|WRITE IN|COME FROM|ABSTAIN FROM|REINSTATE|NEXT|STASH|RESUME|FORGET|IGNORE|REMEMBER|RETRIEVE|GIVE UP|NEXT|<-))|" +
-                                  "(?<separator>(\\\"|\\'|\\+|BY))|<-|" +
+                                  "(?<gerund>(READING OUT|WRITING IN|COMING FROM|ABSTAINING|REINSTATING|NEXTING|STASHING|RESUMING|FORGETTING|IGNORING|REMEMBERING|RETRIEVING|CALCULATING|TRYING AGAIN))|" +
+                                  "(?<statement>(READ OUT|WRITE IN|COME FROM|ABSTAIN|REINSTATE|NEXT|STASH|RESUME|FORGET|IGNORE|REMEMBER|RETRIEVE|GIVE UP|NEXT|<-|TRY AGAIN))|" +
+                                  "(?<separator>(\\\"|\\'|\\+|BY|FROM))|<-|" +
                                   "(?<var>(\\.|,|;|:|#))|SUB|" +
                                   @"(?<unary_op>(\&|v|V|\?))|" +
-                                  @"(?<binary_op>(\$|~))|[a-zA-Z]+|\n";
+                                  @"(?<binary_op>(\$|~))|" +
+                                  //"(?<suffix>(ONCE|AGAIN))|" +
+                                  @"[a-zA-Z]+|\n";
 
             var r = new Regex(tokens);
             return new Scanner(r.Match(input));

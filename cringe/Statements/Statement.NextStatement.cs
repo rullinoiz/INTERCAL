@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using INTERCAL.Compiler;
 using INTERCAL.Compiler.Exceptions;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 using INTERCAL.Runtime;
 
 namespace INTERCAL.Statements
@@ -17,7 +17,7 @@ namespace INTERCAL.Statements
             {
                 Target = ReadGroupValue(s, "label");
                 s.MoveNext();
-                VerifyToken(s, "NEXT");
+                AssertToken(s, "NEXT");
             }
 
             private void EmitExternalCall(CompilationContext ctx)
@@ -37,73 +37,67 @@ namespace INTERCAL.Statements
 								
                             if (m != null)
                             {
+                                ctx.BeginBlock();
                                 if (m.IsStatic)
                                 {
                                     //ctx.EmitRaw(a.ClassName + "." + a.MethodName + "(frame.ExecutionContext);");
-                                    ctx.EmitRaw("{\r\n");
-                                    ctx.EmitRaw(
-                                        $"   bool shouldTerminate = {a.ClassName}.{a.MethodName}(frame.ExecutionContext);\r\n");
+                                    ctx.Emit(
+                                        $"bool shouldTerminate = {a.ClassName}.{a.MethodName}({Constants.FrameExecutionContext});");
                                 }
                                 else
                                 {
                                     if (!ctx.ExternalReferences.Contains(a.ClassName))
                                         ctx.ExternalReferences.Add(a.ClassName);
 
-                                    ctx.EmitRaw("{\r\n");
-                                    ctx.EmitRaw("   bool shouldTerminate = " 
-                                                + CompilationContext.GeneratePropertyName(a.ClassName) 
-                                                + "." + a.MethodName + "(frame.ExecutionContext);\r\n");
+                                    ctx.Emit(
+                                        $"bool shouldTerminate = {CompilationContext.GeneratePropertyName(a.ClassName)}.{a.MethodName}({Constants.FrameExecutionContext});");
                                 }
 
-                                ctx.EmitRaw("   if (shouldTerminate)\r\n");
-                                ctx.EmitRaw("   {\r\n");
-                                ctx.EmitRaw("       goto exit;\r\n");
-                                ctx.EmitRaw("   }\r\n");
+                                ctx.Emit("if (shouldTerminate)")
+                                .BeginBlock()
+                                    .Emit("goto exit;")
+                                .EndBlock();
                                 if (ctx.DebugBuild) {
-                                    ctx.EmitRaw("   else\r\n");
-                                    ctx.EmitRaw("   {\r\n");
-                                    ctx.EmitRaw($"      Trace.WriteLine(\"Resuming execution at {StatementNumber}\");");
-                                    ctx.EmitRaw("   }\r\n");
+                                    ctx.Emit("else")
+                                    .BeginBlock()
+                                        .EmitRaw($"Trace.WriteLine(\"Resuming execution at {StatementNumber}\");")
+                                    .EndBlock();
                                 }
 
-                                ctx.EmitRaw("}\r\n");
+                                ctx.EndBlock();
                             }
-
                             else
                             {
                                 //look for the dynamic one.
                                 m = t.GetMethod(a.MethodName, new[] { typeof(ExecutionContext) });
                                 if (m != null)
                                 {
+                                    ctx.BeginBlock();
                                     if (m.IsStatic)
-                                    {
-                                        ctx.EmitRaw("{\r\n");
-                                        ctx.EmitRaw(
-                                            $"   bool shouldTerminate = {a.ClassName}.{a.MethodName}(frame.ExecutionContext);\r\n");
-                                    }
+                                        ctx.Emit(
+                                            $"bool shouldTerminate = {a.ClassName}.{a.MethodName}({Constants.FrameExecutionContext});");
                                     else
                                     {
                                         if (!ctx.ExternalReferences.Contains(a.ClassName))
                                             ctx.ExternalReferences.Add(a.ClassName);
 
-                                        ctx.EmitRaw("{\r\n");
-                                        ctx.EmitRaw("   bool shouldTerminate = " + CompilationContext.GeneratePropertyName(a.ClassName) + "." + a.MethodName + "(frame.ExecutionContext);\r\n");
+                                        ctx.Emit(
+                                            $"bool shouldTerminate = {CompilationContext.GeneratePropertyName(a.ClassName)}.{a.MethodName}({Constants.FrameExecutionContext});\r\n");
                                     }
 
-                                    ctx.EmitRaw("   if (shouldTerminate)\r\n");
-                                    ctx.EmitRaw("   {\r\n");
-                                    ctx.EmitRaw("       goto exit;\r\n");
-                                    ctx.EmitRaw("   }\r\n");
+                                    ctx.Emit("if (shouldTerminate)")
+                                    .BeginBlock()
+                                        .Emit("goto exit;")
+                                    .EndBlock();
                                     if (ctx.DebugBuild)
                                     {
-                                        ctx.EmitRaw("   else\r\n");
-                                        ctx.EmitRaw("   {\r\n");
-                                        ctx.EmitRaw(
-                                            $"      Trace.WriteLine(\"Resuming execution at {StatementNumber}\");");
-                                        ctx.EmitRaw("   }\r\n");
+                                        ctx.Emit("else")
+                                        .BeginBlock()
+                                            .Emit($"Trace.WriteLine(\"Resuming execution at {StatementNumber}\");")
+                                        .EndBlock();
                                     }
 
-                                    ctx.EmitRaw("}\r\n");
+                                    ctx.EndBlock();
                                 }
                                 else
                                     throw new CompilationException(string.Format(Messages.E2004, a.ClassName, a.MethodName));
@@ -116,16 +110,14 @@ namespace INTERCAL.Statements
                 {
                     throw;
                 }
-
                 catch (Exception)
                 {
                     CompilationContext.Warn(Messages.E129 + Target);
-                    ctx.EmitRaw($"Lib.Fail(Messages.E129 + \"{Target}\");\n");
+                    ctx.Emit($"{Constants.LibFail}({nameof(Messages)}.{nameof(Messages.E129)} + \"{Target}\");");
                 }
-
 				
                 CompilationContext.Warn(Messages.E129 + Target);
-                ctx.EmitRaw("Lib.Fail(Messages.E129+ \"" + Target + "\");\n");
+                ctx.Emit($"{Constants.LibFail}({nameof(Messages)}.{nameof(Messages.E129)} + \"{Target}\");");
             }
 
             public override void Emit(CompilationContext ctx)
@@ -133,36 +125,35 @@ namespace INTERCAL.Statements
                 if (!ctx.Program[Target].Any())
                 {
                     //the passed label isn't a local label
-                    ctx.Emit($"Trace.WriteLine(\"       Doing {Target} Next\");");
+                    ctx.Emit($"Trace.WriteLine(\"\\tDoing {Target} Next\");");
                     EmitExternalCall(ctx);
                 }
 
                 else
                 {
                     var target = ctx.Program[Target].First();
-
-                    ctx.Emit(!string.IsNullOrEmpty(target.Label)
-                        ? $"Trace.WriteLine(\"       Doing {target.Label} Next\");"
-                        : $"Trace.WriteLine(\"       Doing statement #{target.StatementNumber} Next\");");
-
-                    ctx.EmitRaw("{\r\n");
-                    ctx.EmitRaw("   bool shouldTerminate = frame.ExecutionContext.Evaluate(Eval," 
-                                + target.Label.Substring(1, target.Label.Length - 2) + ");\r\n");
-                    ctx.EmitRaw("   if (shouldTerminate)\r\n");
-                    ctx.EmitRaw("   {\r\n");
-                    ctx.EmitRaw("       goto exit;\r\n");
-                    ctx.EmitRaw("   }\r\n");
+                    var label = target as LabelStatement;
+                    
+                    ctx.Emit(label != null
+                        ? $"Trace.WriteLine(\"\\tDoing {label.Label} Next\");"
+                        : $"Trace.WriteLine(\"\\tDoing statement #{target.StatementNumber} Next\");")
+                    
+                    .BeginBlock()
+                        .Emit($"bool shouldTerminate = {Constants.RuntimeEvaluate}(Eval,{label?.LabelNumber});")
+                        .Emit("if (shouldTerminate)")
+                        .BeginBlock()
+                            .Emit("goto exit;")
+                        .EndBlock();
 
                     if (ctx.DebugBuild)
                     {
-                        ctx.EmitRaw("   else\r\n");
-                        ctx.EmitRaw("   {\r\n");
-                        ctx.EmitRaw($"      Trace.WriteLine(\"Resuming execution at {StatementNumber}\");");
-                        ctx.EmitRaw("   }\r\n");
+                        ctx.Emit("else")
+                        .BeginBlock()
+                            .Emit($"Trace.WriteLine(\"Resuming execution at {StatementNumber}\");")
+                        .EndBlock();
                     }
 
-                    ctx.EmitRaw("}\r\n");
-
+                    ctx.EndBlock();
                 }
             }
         }

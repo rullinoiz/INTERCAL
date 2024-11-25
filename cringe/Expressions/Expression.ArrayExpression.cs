@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using INTERCAL.Compiler;
-using intercal.Compiler.Lexer;
+using INTERCAL.Compiler.Lexer;
 using INTERCAL.Runtime;
 
 namespace INTERCAL.Expressions
 {
-    internal abstract partial class Expression
+    public abstract partial class Expression
     {
         public class ArrayExpression : Expression
         {
@@ -57,7 +57,7 @@ namespace INTERCAL.Expressions
 
             public override void Emit(CompilationContext ctx)
             {
-                ctx.EmitRaw("frame.ExecutionContext[\"" + Name + "\", new int[]{");
+                ctx.EmitRaw($"{Constants.FrameExecutionContext}[\"{Name}\", new int[]{{");
 
                 for (var i = 0; i < _subscripts.Count; i++)
                 {
@@ -65,9 +65,7 @@ namespace INTERCAL.Expressions
                     _subscripts[i].Emit(ctx);
 
                     if (i < _subscripts.Count - 1)
-                    {
                         ctx.EmitRaw(",");
-                    }
                 }
 
                 ctx.EmitRaw("}]");
