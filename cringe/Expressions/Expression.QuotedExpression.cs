@@ -47,7 +47,7 @@ namespace INTERCAL.Expressions
 
                 // if the child expression is constant then we can just compile-time evaluate our operator and return
                 // a constant expression.
-                if (!(_child is ConstantExpression c)) return this;
+                if (_child is not ConstantExpression c) return this;
                 if (_unaryOp == null)
                     return _child;
 				
@@ -121,35 +121,23 @@ namespace INTERCAL.Expressions
                 if (result < ushort.MaxValue)
                 {
                     var tmp = (ushort)result;
-                    switch (_unaryOp)
+                    result = _unaryOp switch
                     {
-                        case "v": 
-                        case "V":
-                            result = Lib.UnaryOr16(tmp);
-                            break;
-                        case "&": 
-                            result = Lib.UnaryAnd16(tmp);
-                            break;
-                        case "?": 
-                            result = Lib.UnaryXor16(tmp);
-                            break;
-                    }
+                        "v" or "V" => Lib.UnaryOr16(tmp),
+                        "&" => Lib.UnaryAnd16(tmp),
+                        "?" => Lib.UnaryXor16(tmp),
+                        _ => result
+                    };
                 }
                 else
                 {
-                    switch (_unaryOp)
+                    result = _unaryOp switch
                     {
-                        case "v": 
-                        case "V":
-                            result = Lib.UnaryOr32(result);
-                            break;
-                        case "&": 
-                            result = Lib.UnaryAnd32(result);
-                            break;
-                        case "?": 
-                            result = Lib.UnaryXor32(result);
-                            break;
-                    }
+                        "v" or "V" => Lib.UnaryOr32(result),
+                        "&" => Lib.UnaryAnd32(result),
+                        "?" => Lib.UnaryXor32(result),
+                        _ => result
+                    };
                 }
                 return result;
             }

@@ -51,7 +51,7 @@ namespace INTERCAL.Expressions
                 // Constant expressions are only 16 bits
                 if (Value > ushort.MaxValue)
                     //throw new ParseException(String.Format("line {0}: Constant too big (#{0})", s.LineNumber, Value));
-                    throw new CompilationException(Messages.E017);
+                    throw new CompilationException(IntercalError.E017);
 				
                 ReturnType = typeof(ushort);
             }

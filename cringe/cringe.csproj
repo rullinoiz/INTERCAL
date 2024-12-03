@@ -5,7 +5,8 @@
     <AssemblyName>cringe</AssemblyName>
     <OutputType>Exe</OutputType>
     <RootNamespace>INTERCAL</RootNamespace>
-    <TargetFramework>net40</TargetFramework>
+    <TargetFramework>net8</TargetFramework>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <OutputPath>bin\Debug\</OutputPath>

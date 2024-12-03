@@ -1,3 +1,4 @@
+using System;
 using INTERCAL.Compiler;
 using INTERCAL.Compiler.Lexer;
 using INTERCAL.Expressions;
@@ -20,6 +21,12 @@ namespace INTERCAL.Statements
                     return;
 				
                 _depth = Expression.CreateExpression(s);
+                
+                // RESUME #0 is an error
+                if (_depth is Expression.ConstantExpression c && c.Value == 0)
+                {
+                    Console.WriteLine(CompilationWarning.W622);
+                }
             }
 
             public override void Emit(CompilationContext ctx)
@@ -27,7 +34,7 @@ namespace INTERCAL.Statements
                 if (ctx.DebugBuild)
                     ctx.Emit("Trace.WriteLine(string.Format(\"\\tResuming {0}\", depth));");
                 
-                if (_depth is Expression.ConstantExpression d && d.Value > 0)
+                if (_depth is Expression.ConstantExpression { Value: > 0 } d)
                 {
                     ctx.Emit($"{Constants.RuntimeResume}({d.Value});");
                     ctx.Emit($"goto {Constants.ExitLabelName};");

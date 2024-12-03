@@ -7,302 +7,127 @@ using INTERCAL.Runtime;
 using System.Diagnostics;
 
 // These attributes are used by the compiler for component linking
-[assembly: EntryPointAttribute("(1000)", "syslib", "DO_1000")]
-[assembly: EntryPointAttribute("(1009)", "syslib", "DO_1009")]
-[assembly: EntryPointAttribute("(1004)", "syslib", "DO_1004")]
-[assembly: EntryPointAttribute("(1005)", "syslib", "DO_1005")]
-[assembly: EntryPointAttribute("(1999)", "syslib", "DO_1999")]
-[assembly: EntryPointAttribute("(1002)", "syslib", "DO_1002")]
-[assembly: EntryPointAttribute("(1006)", "syslib", "DO_1006")]
-[assembly: EntryPointAttribute("(1003)", "syslib", "DO_1003")]
-[assembly: EntryPointAttribute("(1007)", "syslib", "DO_1007")]
-[assembly: EntryPointAttribute("(1001)", "syslib", "DO_1001")]
-[assembly: EntryPointAttribute("(1010)", "syslib", "DO_1010")]
-[assembly: EntryPointAttribute("(1020)", "syslib", "DO_1020")]
-[assembly: EntryPointAttribute("(1021)", "syslib", "DO_1021")]
-[assembly: EntryPointAttribute("(1023)", "syslib", "DO_1023")]
-[assembly: EntryPointAttribute("(1022)", "syslib", "DO_1022")]
-[assembly: EntryPointAttribute("(1030)", "syslib", "DO_1030")]
-[assembly: EntryPointAttribute("(1039)", "syslib", "DO_1039")]
-[assembly: EntryPointAttribute("(1032)", "syslib", "DO_1032")]
-[assembly: EntryPointAttribute("(1031)", "syslib", "DO_1031")]
-[assembly: EntryPointAttribute("(1033)", "syslib", "DO_1033")]
-[assembly: EntryPointAttribute("(1040)", "syslib", "DO_1040")]
-[assembly: EntryPointAttribute("(1050)", "syslib", "DO_1050")]
-[assembly: EntryPointAttribute("(1051)", "syslib", "DO_1051")]
-[assembly: EntryPointAttribute("(1500)", "syslib", "DO_1500")]
-[assembly: EntryPointAttribute("(1509)", "syslib", "DO_1509")]
-[assembly: EntryPointAttribute("(1504)", "syslib", "DO_1504")]
-[assembly: EntryPointAttribute("(1503)", "syslib", "DO_1503")]
-[assembly: EntryPointAttribute("(1501)", "syslib", "DO_1501")]
-[assembly: EntryPointAttribute("(1506)", "syslib", "DO_1506")]
-[assembly: EntryPointAttribute("(1505)", "syslib", "DO_1505")]
-[assembly: EntryPointAttribute("(1502)", "syslib", "DO_1502")]
-[assembly: EntryPointAttribute("(1510)", "syslib", "DO_1510")]
-[assembly: EntryPointAttribute("(1520)", "syslib", "DO_1520")]
-[assembly: EntryPointAttribute("(1525)", "syslib", "DO_1525")]
-[assembly: EntryPointAttribute("(1530)", "syslib", "DO_1530")]
-[assembly: EntryPointAttribute("(1535)", "syslib", "DO_1535")]
-[assembly: EntryPointAttribute("(1531)", "syslib", "DO_1531")]
-[assembly: EntryPointAttribute("(1533)", "syslib", "DO_1533")]
-[assembly: EntryPointAttribute("(1532)", "syslib", "DO_1532")]
-[assembly: EntryPointAttribute("(1540)", "syslib", "DO_1540")]
-[assembly: EntryPointAttribute("(1549)", "syslib", "DO_1549")]
-[assembly: EntryPointAttribute("(1541)", "syslib", "DO_1541")]
-[assembly: EntryPointAttribute("(1542)", "syslib", "DO_1542")]
-[assembly: EntryPointAttribute("(1543)", "syslib", "DO_1543")]
-[assembly: EntryPointAttribute("(1544)", "syslib", "DO_1544")]
-[assembly: EntryPointAttribute("(1550)", "syslib", "DO_1550")]
-[assembly: EntryPointAttribute("(1553)", "syslib", "DO_1553")]
-[assembly: EntryPointAttribute("(1552)", "syslib", "DO_1552")]
-[assembly: EntryPointAttribute("(1556)", "syslib", "DO_1556")]
-[assembly: EntryPointAttribute("(1554)", "syslib", "DO_1554")]
-[assembly: EntryPointAttribute("(1555)", "syslib", "DO_1555")]
-[assembly: EntryPointAttribute("(1551)", "syslib", "DO_1551")]
-[assembly: EntryPointAttribute("(1900)", "syslib", "DO_1900")]
-[assembly: EntryPointAttribute("(1901)", "syslib", "DO_1901")]
-[assembly: EntryPointAttribute("(1902)", "syslib", "DO_1902")]
-[assembly: EntryPointAttribute("(1910)", "syslib", "DO_1910")]
-[assembly: EntryPointAttribute("(1912)", "syslib", "DO_1912")]
-[assembly: EntryPointAttribute("(1911)", "syslib", "DO_1911")]
-
+[assembly: EntryPointAttribute("(1000)", nameof(syslib), nameof(syslib.DO_1000))]
+[assembly: EntryPointAttribute("(1009)", nameof(syslib), nameof(syslib.DO_1009))]
+[assembly: EntryPointAttribute("(1004)", nameof(syslib), nameof(syslib.DO_1004))]
+[assembly: EntryPointAttribute("(1005)", nameof(syslib), nameof(syslib.DO_1005))]
+[assembly: EntryPointAttribute("(1999)", nameof(syslib), nameof(syslib.DO_1999))]
+[assembly: EntryPointAttribute("(1002)", nameof(syslib), nameof(syslib.DO_1002))]
+[assembly: EntryPointAttribute("(1006)", nameof(syslib), nameof(syslib.DO_1006))]
+[assembly: EntryPointAttribute("(1003)", nameof(syslib), nameof(syslib.DO_1003))]
+[assembly: EntryPointAttribute("(1007)", nameof(syslib), nameof(syslib.DO_1007))]
+[assembly: EntryPointAttribute("(1001)", nameof(syslib), nameof(syslib.DO_1001))]
+[assembly: EntryPointAttribute("(1010)", nameof(syslib), nameof(syslib.DO_1010))]
+[assembly: EntryPointAttribute("(1020)", nameof(syslib), nameof(syslib.DO_1020))]
+[assembly: EntryPointAttribute("(1021)", nameof(syslib), nameof(syslib.DO_1021))]
+[assembly: EntryPointAttribute("(1023)", nameof(syslib), nameof(syslib.DO_1023))]
+[assembly: EntryPointAttribute("(1022)", nameof(syslib), nameof(syslib.DO_1022))]
+[assembly: EntryPointAttribute("(1030)", nameof(syslib), nameof(syslib.DO_1030))]
+[assembly: EntryPointAttribute("(1039)", nameof(syslib), nameof(syslib.DO_1039))]
+[assembly: EntryPointAttribute("(1032)", nameof(syslib), nameof(syslib.DO_1032))]
+[assembly: EntryPointAttribute("(1031)", nameof(syslib), nameof(syslib.DO_1031))]
+[assembly: EntryPointAttribute("(1033)", nameof(syslib), nameof(syslib.DO_1033))]
+[assembly: EntryPointAttribute("(1040)", nameof(syslib), nameof(syslib.DO_1040))]
+[assembly: EntryPointAttribute("(1050)", nameof(syslib), nameof(syslib.DO_1050))]
+[assembly: EntryPointAttribute("(1051)", nameof(syslib), nameof(syslib.DO_1051))]
+[assembly: EntryPointAttribute("(1500)", nameof(syslib), nameof(syslib.DO_1500))]
+[assembly: EntryPointAttribute("(1509)", nameof(syslib), nameof(syslib.DO_1509))]
+[assembly: EntryPointAttribute("(1504)", nameof(syslib), nameof(syslib.DO_1504))]
+[assembly: EntryPointAttribute("(1503)", nameof(syslib), nameof(syslib.DO_1503))]
+[assembly: EntryPointAttribute("(1501)", nameof(syslib), nameof(syslib.DO_1501))]
+[assembly: EntryPointAttribute("(1506)", nameof(syslib), nameof(syslib.DO_1506))]
+[assembly: EntryPointAttribute("(1505)", nameof(syslib), nameof(syslib.DO_1505))]
+[assembly: EntryPointAttribute("(1502)", nameof(syslib), nameof(syslib.DO_1502))]
+[assembly: EntryPointAttribute("(1510)", nameof(syslib), nameof(syslib.DO_1510))]
+[assembly: EntryPointAttribute("(1520)", nameof(syslib), nameof(syslib.DO_1520))]
+[assembly: EntryPointAttribute("(1525)", nameof(syslib), nameof(syslib.DO_1525))]
+[assembly: EntryPointAttribute("(1530)", nameof(syslib), nameof(syslib.DO_1530))]
+[assembly: EntryPointAttribute("(1535)", nameof(syslib), nameof(syslib.DO_1535))]
+[assembly: EntryPointAttribute("(1531)", nameof(syslib), nameof(syslib.DO_1531))]
+[assembly: EntryPointAttribute("(1533)", nameof(syslib), nameof(syslib.DO_1533))]
+[assembly: EntryPointAttribute("(1532)", nameof(syslib), nameof(syslib.DO_1532))]
+[assembly: EntryPointAttribute("(1540)", nameof(syslib), nameof(syslib.DO_1540))]
+[assembly: EntryPointAttribute("(1549)", nameof(syslib), nameof(syslib.DO_1549))]
+[assembly: EntryPointAttribute("(1541)", nameof(syslib), nameof(syslib.DO_1541))]
+[assembly: EntryPointAttribute("(1542)", nameof(syslib), nameof(syslib.DO_1542))]
+[assembly: EntryPointAttribute("(1543)", nameof(syslib), nameof(syslib.DO_1543))]
+[assembly: EntryPointAttribute("(1544)", nameof(syslib), nameof(syslib.DO_1544))]
+[assembly: EntryPointAttribute("(1550)", nameof(syslib), nameof(syslib.DO_1550))]
+[assembly: EntryPointAttribute("(1553)", nameof(syslib), nameof(syslib.DO_1553))]
+[assembly: EntryPointAttribute("(1552)", nameof(syslib), nameof(syslib.DO_1552))]
+[assembly: EntryPointAttribute("(1556)", nameof(syslib), nameof(syslib.DO_1556))]
+[assembly: EntryPointAttribute("(1554)", nameof(syslib), nameof(syslib.DO_1554))]
+[assembly: EntryPointAttribute("(1555)", nameof(syslib), nameof(syslib.DO_1555))]
+[assembly: EntryPointAttribute("(1551)", nameof(syslib), nameof(syslib.DO_1551))]
+[assembly: EntryPointAttribute("(1900)", nameof(syslib), nameof(syslib.DO_1900))]
+[assembly: EntryPointAttribute("(1901)", nameof(syslib), nameof(syslib.DO_1901))]
+[assembly: EntryPointAttribute("(1902)", nameof(syslib), nameof(syslib.DO_1902))]
+[assembly: EntryPointAttribute("(1910)", nameof(syslib), nameof(syslib.DO_1910))]
+[assembly: EntryPointAttribute("(1912)", nameof(syslib), nameof(syslib.DO_1912))]
+[assembly: EntryPointAttribute("(1911)", nameof(syslib), nameof(syslib.DO_1911))]
 
 [Serializable]
 public class syslib : System.Object
 {
 	public void Run() => INTERCAL.Runtime.ExecutionContext.CreateExecutionContext().Run(Eval);
-	public bool DO_1000(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1000));
-	}
-	public bool DO_1009(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1009));
-	}
-	public bool DO_1004(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1004));
-	}
-	public bool DO_1005(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1005));
-	}
-	public bool DO_1999(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1999));
-	}
-	public bool DO_1002(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1002));
-	}
-	public bool DO_1006(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1006));
-	}
-	public bool DO_1003(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1003));
-	}
-	public bool DO_1007(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1007));
-	}
-	public bool DO_1001(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1001));
-	}
-	public bool DO_1010(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1010));
-	}
-	public bool DO_1020(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1020));
-	}
-	public bool DO_1021(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1021));
-	}
-	public bool DO_1023(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1023));
-	}
-	public bool DO_1022(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1022));
-	}
-	public bool DO_1030(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1030));
-	}
-	public bool DO_1039(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1039));
-	}
-	public bool DO_1032(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1032));
-	}
-	public bool DO_1031(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1031));
-	}
-	public bool DO_1033(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1033));
-	}
-	public bool DO_1040(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1040));
-	}
-	public bool DO_1050(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1050));
-	}
-	public bool DO_1051(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1051));
-	}
-	public bool DO_1500(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1500));
-	}
-	public bool DO_1509(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1509));
-	}
-	public bool DO_1504(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1504));
-	}
-	public bool DO_1503(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1503));
-	}
-	public bool DO_1501(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1501));
-	}
-	public bool DO_1506(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1506));
-	}
-	public bool DO_1505(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1505));
-	}
-	public bool DO_1502(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1502));
-	}
-	public bool DO_1510(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1510));
-	}
-	public bool DO_1520(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1520));
-	}
-	public bool DO_1525(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1525));
-	}
-	public bool DO_1530(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1530));
-	}
-	public bool DO_1535(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1535));
-	}
-	public bool DO_1531(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1531));
-	}
-	public bool DO_1533(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1533));
-	}
-	public bool DO_1532(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1532));
-	}
-	public bool DO_1540(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1540));
-	}
-	public bool DO_1549(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1549));
-	}
-	public bool DO_1541(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1541));
-	}
-	public bool DO_1542(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1542));
-	}
-	public bool DO_1543(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1543));
-	}
-	public bool DO_1544(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1544));
-	}
-	public bool DO_1550(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1550));
-	}
-	public bool DO_1553(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1553));
-	}
-	public bool DO_1552(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1552));
-	}
-	public bool DO_1556(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1556));
-	}
-	public bool DO_1554(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1554));
-	}
-	public bool DO_1555(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1555));
-	}
-	public bool DO_1551(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1551));
-	}
-	public bool DO_1900(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1900));
-	}
-	public bool DO_1901(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1901));
-	}
-	public bool DO_1902(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1902));
-	}
-	public bool DO_1910(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1910));
-	}
-	public bool DO_1912(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1912));
-	}
-	public bool DO_1911(ExecutionContext context)
-	{
-		return context.Evaluate(Eval,(1911));
-	}
+	public bool DO_1000(ExecutionContext context) => context.Evaluate(Eval, (1000));
+	public bool DO_1009(ExecutionContext context) => context.Evaluate(Eval, (1009));
+	public bool DO_1004(ExecutionContext context) => context.Evaluate(Eval, (1004));
+	public bool DO_1005(ExecutionContext context) => context.Evaluate(Eval, (1005));
+	public bool DO_1999(ExecutionContext context) => context.Evaluate(Eval, (1999));
+	public bool DO_1002(ExecutionContext context) => context.Evaluate(Eval, (1002));
+	public bool DO_1006(ExecutionContext context) => context.Evaluate(Eval, (1006));
+	public bool DO_1003(ExecutionContext context) => context.Evaluate(Eval, (1003));
+	public bool DO_1007(ExecutionContext context) => context.Evaluate(Eval, (1007));
+	public bool DO_1001(ExecutionContext context) => context.Evaluate(Eval, (1001));
+	public bool DO_1010(ExecutionContext context) => context.Evaluate(Eval, (1010));
+	public bool DO_1020(ExecutionContext context) => context.Evaluate(Eval, (1020));
+	public bool DO_1021(ExecutionContext context) => context.Evaluate(Eval, (1021));
+	public bool DO_1023(ExecutionContext context) => context.Evaluate(Eval, (1023));
+	public bool DO_1022(ExecutionContext context) => context.Evaluate(Eval, (1022));
+	public bool DO_1030(ExecutionContext context) => context.Evaluate(Eval, (1030));
+	public bool DO_1039(ExecutionContext context) => context.Evaluate(Eval, (1039));
+	public bool DO_1032(ExecutionContext context) => context.Evaluate(Eval, (1032));
+	public bool DO_1031(ExecutionContext context) => context.Evaluate(Eval, (1031));
+	public bool DO_1033(ExecutionContext context) => context.Evaluate(Eval, (1033));
+	public bool DO_1040(ExecutionContext context) => context.Evaluate(Eval, (1040));
+	public bool DO_1050(ExecutionContext context) => context.Evaluate(Eval, (1050));
+	public bool DO_1051(ExecutionContext context) => context.Evaluate(Eval, (1051));
+	public bool DO_1500(ExecutionContext context) => context.Evaluate(Eval, (1500));
+	public bool DO_1509(ExecutionContext context) => context.Evaluate(Eval, (1509));
+	public bool DO_1504(ExecutionContext context) => context.Evaluate(Eval, (1504));
+	public bool DO_1503(ExecutionContext context) => context.Evaluate(Eval, (1503));
+	public bool DO_1501(ExecutionContext context) => context.Evaluate(Eval, (1501));
+	public bool DO_1506(ExecutionContext context) => context.Evaluate(Eval, (1506));
+	public bool DO_1505(ExecutionContext context) => context.Evaluate(Eval, (1505));
+	public bool DO_1502(ExecutionContext context) => context.Evaluate(Eval, (1502));
+	public bool DO_1510(ExecutionContext context) => context.Evaluate(Eval, (1510));
+	public bool DO_1520(ExecutionContext context) => context.Evaluate(Eval, (1520));
+	public bool DO_1525(ExecutionContext context) => context.Evaluate(Eval, (1525));
+	public bool DO_1530(ExecutionContext context) => context.Evaluate(Eval, (1530));
+	public bool DO_1535(ExecutionContext context) => context.Evaluate(Eval, (1535));
+	public bool DO_1531(ExecutionContext context) => context.Evaluate(Eval, (1531));
+	public bool DO_1533(ExecutionContext context) => context.Evaluate(Eval, (1533));
+	public bool DO_1532(ExecutionContext context) => context.Evaluate(Eval, (1532));
+	public bool DO_1540(ExecutionContext context) => context.Evaluate(Eval, (1540));
+	public bool DO_1549(ExecutionContext context) => context.Evaluate(Eval, (1549));
+	public bool DO_1541(ExecutionContext context) => context.Evaluate(Eval, (1541));
+	public bool DO_1542(ExecutionContext context) => context.Evaluate(Eval, (1542));
+	public bool DO_1543(ExecutionContext context) => context.Evaluate(Eval, (1543));
+	public bool DO_1544(ExecutionContext context) => context.Evaluate(Eval, (1544));
+	public bool DO_1550(ExecutionContext context) => context.Evaluate(Eval, (1550));
+	public bool DO_1553(ExecutionContext context) => context.Evaluate(Eval, (1553));
+	public bool DO_1552(ExecutionContext context) => context.Evaluate(Eval, (1552));
+	public bool DO_1556(ExecutionContext context) => context.Evaluate(Eval, (1556));
+	public bool DO_1554(ExecutionContext context) => context.Evaluate(Eval, (1554));
+	public bool DO_1555(ExecutionContext context) => context.Evaluate(Eval, (1555));
+	public bool DO_1551(ExecutionContext context) => context.Evaluate(Eval, (1551));
+	public bool DO_1900(ExecutionContext context) => context.Evaluate(Eval, (1900));
+	public bool DO_1901(ExecutionContext context) => context.Evaluate(Eval, (1901));
+	public bool DO_1902(ExecutionContext context) => context.Evaluate(Eval, (1902));
+	public bool DO_1910(ExecutionContext context) => context.Evaluate(Eval, (1910));
+	public bool DO_1912(ExecutionContext context) => context.Evaluate(Eval, (1912));
+	public bool DO_1911(ExecutionContext context) => context.Evaluate(Eval, (1911));
 	public void DO(ExecutionContext context, string label)
 	{
 		switch(label)
@@ -2054,7 +1879,7 @@ public class syslib : System.Object
 		frame.ExecutionContext.Resume(1);
 		goto exit;
 		// Generic catch-all if the program
-		throw new Exception(Messages.E633);
+		throw new Exception(IntercalError.E633);
 		exit:
 		return;
 	}

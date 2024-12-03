@@ -27,182 +27,176 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace INTERCAL.Runtime
-{ 
-    public delegate void IntercalThreadProc(ExecutionFrame context);
-    public class ExecutionFrame
+namespace INTERCAL.Runtime;
+
+public delegate void IntercalThreadProc(ExecutionFrame context);
+
+public class ExecutionFrame(ExecutionContext context, IntercalThreadProc proc, int label)
+{
+    private readonly object _syncLock = new ();
+    public readonly ExecutionContext ExecutionContext = context;
+    public readonly IntercalThreadProc Proc = proc;
+    private bool _complete;
+
+    /// <summary>
+    /// Returned to the calling thread to tell it whether or not it should terminate. Right now <c>true</c> means
+    /// "terminate" (you've been forgotten) and false means "continue" (you've been resumed).
+    /// </summary>
+    private bool _result;
+    public readonly int Label = label;
+
+    public bool Start()
     {
-        private readonly object _syncLock = new object();
-        public readonly ExecutionContext ExecutionContext;
-        public readonly IntercalThreadProc Proc;
-        private bool _complete;
+        // Note that the only reason we need to spin up a new thread is the lurking possiblity of FORGET. If we could
+        // guarantee that the function referenced by this.Proc never does a FORGET then we could just make a direct
+        // function call.
 
-        /// <summary>
-        /// Returned to the calling thread to tell it whether or not it should terminate. Right now <c>true</c> means
-        /// "terminate" (you've been forgotten) and false means "continue" (you've been resumed).
-        /// </summary>
-        private bool _result;
-        public readonly int Label;
+        var myThread = new IntercalThreadProc(InternalThreadProc);
+        Task.Run(() => myThread(this));
 
-        public ExecutionFrame(ExecutionContext context, IntercalThreadProc proc, int label)
+        lock (_syncLock)
         {
-            ExecutionContext = context;
-            Proc = proc;
-            Label = label;
-        }
-
-        public bool Start()
-        {
-            // Note that the only reason we need to spin up a new thread is the lurking possiblity of FORGET. If we could
-            // guarantee that the function referenced by this.Proc never does a FORGET then we could just make a direct
-            // function call.
-
-            var myThread = new IntercalThreadProc(InternalThreadProc);
-            Task.Factory.StartNew(() => myThread(this), TaskCreationOptions.AttachedToParent);
-
-            lock (_syncLock)
+            while (!_complete)
             {
-                while (!_complete)
-                {
-                    Monitor.Wait(_syncLock);
-                }
+                Monitor.Wait(_syncLock);
             }
+        }
             
-            return _result;
-        }
+        return _result;
+    }
 
-        public void Resume() => Finish(false);
+    public void Resume() => Finish(false);
 
-        public void Abort() => Finish(true);
+    public void Abort() => Finish(true);
 
-        private void Finish(bool result)
+    private void Finish(bool result)
+    {
+        _result = result;
+        _complete = true;
+
+        lock (_syncLock)
         {
-            _result = result;
-            _complete = true;
+            Monitor.Pulse(_syncLock);
+        }
+    }
+    
+    private void InternalThreadProc(ExecutionFrame ctx)
+    {
+        try
+        {
+            Proc(this);
+        }
+        catch (Exception e)
+        {
+            ExecutionContext.OnUnhandledException(e);
+        }
+    }
+}
 
-            lock (_syncLock)
+public class AsyncDispatcher
+{
+    protected bool Done;
+    protected readonly object SyncLock = new();
+    protected Exception CurrentException { get; private set; }
+    protected readonly Stack<ExecutionFrame> NextingStack = new(80);
+
+    protected delegate bool StartProc(IntercalThreadProc proc, int label);
+        
+    /// <remarks>
+    /// Depth must be zero. We depend on the compiler to ensure that resume #0 is ignored as a no-op. The top of the
+    /// stack is the frame that is waiting for the current thread to return.
+    /// </remarks>
+    /// <exception cref="IntercalException">Throws <see cref="IntercalError.E632"/>.</exception>
+    public void Resume(uint depth)
+    {
+        if (depth <= NextingStack.Count)
+        {
+            lock (SyncLock)
             {
-                Monitor.Pulse(_syncLock);
+                for (var i = 0; i < depth - 1 && NextingStack.Count >= 0; i++)
+                {
+                    var f = NextingStack.Pop();
+
+                    //Debug.WriteLine(string.Format("[{0}]   Discarding {1}.{2}({3})\r\n",
+                    //Thread.CurrentThread.ManagedThreadId,
+                    //f.Proc.Target.GetType().Name,
+                    //f.Proc.Method.Name,
+                    //f.Label));
+
+                    f.Abort();
+                }
+
+                // var frame = NextingStack.Peek();
+                // Debug.WriteLine("[{0}]   Resuming from {1}.{2}({3})\r\n",
+                //     Environment.CurrentManagedThreadId, 
+                //     frame.Proc.Target!.GetType().Name, 
+                //     frame.Proc.Method.Name, 
+                //     frame.Label);
+
+                // Resume the thread that's on top...
+                NextingStack.Peek().Resume();
+                // ..since the thread that's on top has resumed that means nobody is waiting on it anymore.
+                // So we can pop it.
+                NextingStack.Pop();
+
+                DumpStack();
             }
         }
-        private void InternalThreadProc(ExecutionFrame ctx)
+        else
         {
-            try
+            throw new IntercalException(IntercalError.E632);
+        }
+    }
+        
+    public void Forget(int depth)
+    {
+        lock (SyncLock)
+        {
+            // Note that it's totally kosher to underflow the nexting stack in intercal. I haven't tested what this
+            // code would do if we underflow. 
+            for (var i = 0; i < depth && NextingStack.Count > 0; i++)
             {
-                Proc(this);
-            }
-            catch (Exception e)
-            {
-                ExecutionContext.OnUnhandledException(e);
+                var frame = NextingStack.Pop();
+                frame.Abort();
             }
         }
     }
 
-    public class AsyncDispatcher
+    public void GiveUp()
     {
-        protected bool Done;
-        protected readonly object SyncLock = new object();
-        protected Exception CurrentException { get; private set; }
-        protected readonly Stack<ExecutionFrame> NextingStack = new Stack<ExecutionFrame>(80);
+        lock (SyncLock)
+        {
+            while (NextingStack.Count > 0)
+                NextingStack.Pop().Abort();
 
-        protected delegate bool StartProc(IntercalThreadProc proc, int label);
+            Done = true;
+            Monitor.Pulse(SyncLock);
+        }
+    }
+
+    [Conditional("DEBUG")]
+    private void DumpStack()
+    {
+        // var sb = new StringBuilder();
+        // var items = NextingStack.ToList();
+        // sb.Append($"[{Environment.CurrentManagedThreadId}] Nexting Stack:\r\n");
+        // foreach (var frame in items)
+        //     sb.Append($"\t\t{frame.Proc.Target!.GetType().Name}.{frame.Proc.Method.Name}({frame.Label})\r\n");
+        // Debug.WriteLine(sb.ToString());
+    }
         
-        /// <remarks>
-        /// Depth must be zero. We depend on the compiler to ensure that resume #0 is ignored as a no-op. The top of the
-        /// stack is the frame that is waiting for the current thread to return.
-        /// </remarks>
-        /// <exception cref="IntercalException">Throws <see cref="Messages.E632"/>.</exception>
-        public void Resume(uint depth)
-        {
-            if (depth <= NextingStack.Count)
-            {
-                lock (SyncLock)
-                {
-                    for (var i = 0; i < depth - 1 && NextingStack.Count >= 0; i++)
-                    {
-                        var f = NextingStack.Pop();
-
-                        //Debug.WriteLine(string.Format("[{0}]   Discarding {1}.{2}({3})\r\n",
-                        //Thread.CurrentThread.ManagedThreadId,
-                        //f.Proc.Target.GetType().Name,
-                        //f.Proc.Method.Name,
-                        //f.Label));
-
-                        f.Abort();
-                    }
-
-                    var frame = NextingStack.Peek();
-                    Debug.WriteLine("[{0}]   Resuming from {1}.{2}({3})\r\n", 
-                        Thread.CurrentThread.ManagedThreadId, 
-                        frame.Proc.Target.GetType().Name, 
-                        frame.Proc.Method.Name, 
-                        frame.Label);
-
-                    // Resume the thread that's on top...
-                    NextingStack.Peek().Resume();
-                    // ..since the thread that's on top has resumed that means nobody is waiting on it anymore.
-                    // So we can pop it.
-                    NextingStack.Pop();
-
-                    DumpStack();
-                }
-            }
-            else
-            {
-                throw new IntercalException(Messages.E632);
-            }
-        }
-        
-        public void Forget(int depth)
-        {
-            lock (SyncLock)
-            {
-                // Note that it's totally kosher to underflow the nexting stack in intercal. I haven't tested what this
-                // code would do if we underflow. 
-                for (var i = 0; i < depth && NextingStack.Count > 0; i++)
-                {
-                    var frame = NextingStack.Pop();
-                    frame.Abort();
-                }
-            }
-        }
-
-        public void GiveUp()
-        {
-            lock (SyncLock)
-            {
-                while (NextingStack.Count > 0)
-                    NextingStack.Pop().Abort();
-
-                Done = true;
-                Monitor.Pulse(SyncLock);
-            }
-        }
-
-        [Conditional("DEBUG")]
-        private void DumpStack()
-        {
-            var sb = new StringBuilder();
-            var items = NextingStack.ToList();
-            sb.Append($"[{Thread.CurrentThread.ManagedThreadId}] Nexting Stack:\r\n");
-            foreach (var frame in items)
-                sb.Append($"\t\t{frame.Proc.Target.GetType().Name}.{frame.Proc.Method.Name}({frame.Label})\r\n");
-            Debug.WriteLine(sb.ToString());
-        }
-        
-        internal void OnUnhandledException(Exception e)
-        {
-            var sb = new StringBuilder();
-            sb.Append(e.Message + "\r\n");
-            var list = NextingStack.ToList();
+    internal void OnUnhandledException(Exception e)
+    {
+        var sb = new StringBuilder();
+        sb.Append(e.Message + "\r\n");
+        var list = NextingStack.ToList();
             
-            // PLEASE DO NOTE: The topmost label is misleading as that is the label that the most recent DO NEXT jumped
-            // to. It is NOT the most recent label executed.
-            foreach (var frame in list)
-                sb.Append($"\tat {frame.Proc.Target.GetType().Name}.{frame.Proc.Method.Name}({frame.Label})\r\n");
+        // PLEASE DO NOTE: The topmost label is misleading as that is the label that the most recent DO NEXT jumped
+        // to. It is NOT the most recent label executed.
+        foreach (var frame in list)
+            sb.Append($"\tat {frame.Proc.Target!.GetType().Name}.{frame.Proc.Method.Name}({frame.Label})\r\n");
 
-            CurrentException = new IntercalException(sb.ToString(), e);
-            GiveUp();
-        }
+        CurrentException = new IntercalException(sb.ToString(), e);
+        GiveUp();
     }
 }

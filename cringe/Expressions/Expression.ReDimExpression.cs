@@ -16,7 +16,7 @@ namespace INTERCAL.Expressions
         /// </summary>
         public class ReDimExpression : Expression
         {
-            private readonly List<Expression> _dimensions = new List<Expression>();
+            private readonly List<Expression> _dimensions = [];
 
             public ReDimExpression(Scanner s, Expression first)
             {
@@ -31,10 +31,7 @@ namespace INTERCAL.Expressions
 
             }
 			
-            public override uint Evaluate(ExecutionContext ctx) 
-            {
-                throw new Exception("Don't call this!");
-            }
+            public override uint Evaluate(ExecutionContext ctx) => throw new Exception("Don't call this!");
 
             public int[] GetDimensions(ExecutionContext ctx)
             {
@@ -58,7 +55,7 @@ namespace INTERCAL.Expressions
                     //retval[i] = (int)(dimensions[i] as Expression).Evaluate(ctx);
                     ctx.EmitRaw("(int)");
                     _dimensions[i].Emit(ctx);
-                    if (_dimensions[i] is ConstantExpression c && c.Value == 0) snideRemark = true;
+                    if (_dimensions[i] is ConstantExpression { Value: 0 }) snideRemark = true;
                     
                     if (i < _dimensions.Count - 1)
                         ctx.EmitRaw(",");

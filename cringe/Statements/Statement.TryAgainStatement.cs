@@ -1,4 +1,5 @@
 using INTERCAL.Compiler;
+using INTERCAL.Runtime;
 
 namespace INTERCAL.Statements
 {
@@ -6,7 +7,7 @@ namespace INTERCAL.Statements
     {
         /// <summary>
         /// <c>TRY AGAIN</c> should be at the very end of the file and should contain nothing after it; not even syntax
-        /// errors. Otherwise, <see cref="INTERCAL.Runtime.Messages.E993"/> will be thrown at compile time.
+        /// errors. Otherwise, <see cref="IntercalError.E993"/> will be thrown at compile time.
         /// </summary>
         /// <remarks>
         /// <c>TRY AGAIN</c> is specific to C-INTERCAL version 0.25.

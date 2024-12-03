@@ -5,9 +5,8 @@
     <AssemblyName>intercal.runtime</AssemblyName>
     <OutputType>Library</OutputType>
     <RootNamespace>INTERCAL.Runtime</RootNamespace>
-    <TargetFramework>net40</TargetFramework>
-
-    <TargetFrameworkProfile />
+    <TargetFramework>net8</TargetFramework>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <OutputPath>bin\Debug\</OutputPath>

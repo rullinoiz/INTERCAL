@@ -2,54 +2,53 @@ using System.Collections.Generic;
 using INTERCAL.Compiler;
 using INTERCAL.Compiler.Lexer;
 
-namespace INTERCAL.Statements
-{
-    public abstract partial class Statement
-    {
-        public class StashStatement : Statement
-        {
-            public const string Token = "STASH";
-            public const string GerundName = "STASHING";
-            
-            protected readonly List<LValue> Lvals = new List<LValue>();
+namespace INTERCAL.Statements;
 
-            public StashStatement(Scanner s)
+public abstract partial class Statement
+{
+    public class StashStatement : Statement
+    {
+        public const string Token = "STASH";
+        public const string GerundName = "STASHING";
+            
+        protected readonly List<LValue> Lvals = [];
+
+        public StashStatement(Scanner s)
+        {
+            s.MoveNext();
+
+            var lval = new LValue(s);
+            Lvals.Add(lval);
+
+            while (s.PeekNext.Value == "+")
             {
                 s.MoveNext();
-
-                var lval = new LValue(s);
-                Lvals.Add(lval);
-
-                while (s.PeekNext.Value == "+")
-                {
-                    s.MoveNext();
-                    s.MoveNext();
-                    Lvals.Add(new LValue(s));
-                }
+                s.MoveNext();
+                Lvals.Add(new LValue(s));
             }
+        }
 
-            public override void Emit(CompilationContext ctx)
+        public override void Emit(CompilationContext ctx)
+        {
+            var first = true;
+            var labelList = string.Empty;
+            var labelArgs = string.Empty;
+            foreach (var lval in Lvals)
             {
-                var first = true;
-                var labelList = string.Empty;
-                var labelArgs = string.Empty;
-                foreach (var lval in Lvals)
+                if (first)
                 {
-                    if (first)
-                    {
-                        labelArgs += $"\"{lval.Name}\"";
-                        labelList += lval.Name;
-                        first = false;
-                    }
-                    else
-                    {
-                        labelArgs += $", \"{lval.Name}\"";
-                        labelList += " + " + lval.Name;
-                    }
+                    labelArgs += $"\"{lval.Name}\"";
+                    labelList += lval.Name;
+                    first = false;
                 }
-                ctx.Emit($"Trace.WriteLine(\"\\tStashing {labelList}\");");
-                ctx.Emit($"{Constants.RuntimeStash}({labelArgs});");
+                else
+                {
+                    labelArgs += $", \"{lval.Name}\"";
+                    labelList += " + " + lval.Name;
+                }
             }
+            ctx.Emit($"Trace.WriteLine(\"\\tStashing {labelList}\");");
+            ctx.Emit($"{Constants.RuntimeStash}({labelArgs});");
         }
     }
 }
