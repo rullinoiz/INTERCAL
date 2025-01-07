@@ -41,31 +41,33 @@ public abstract partial class Statement
                         if (m != null)
                         {
                             ctx.BeginBlock();
+                            ctx.EmitRaw(ctx.Indent() + "await ");
                             if (m.IsStatic)
                             {
                                 //ctx.EmitRaw(a.ClassName + "." + a.MethodName + "(frame.ExecutionContext);");
-                                ctx.Emit(
-                                    $"bool shouldTerminate = {a.ClassName}.{a.MethodName}({Constants.FrameExecutionContext});");
+                                ctx.EmitRaw(
+                                    $"{a.ClassName}.{a.MethodName}({Constants.FrameExecutionContext});\r\n");
                             }
                             else
                             {
                                 if (!ctx.ExternalReferences.Contains(a.ClassName))
                                     ctx.ExternalReferences.Add(a.ClassName);
 
-                                ctx.Emit(
-                                    $"bool shouldTerminate = {CompilationContext.GeneratePropertyName(a.ClassName)}.{a.MethodName}({Constants.FrameExecutionContext});");
+                                ctx.EmitRaw(
+                                    $"{CompilationContext.GeneratePropertyName(a.ClassName)}.{a.MethodName}({Constants.FrameExecutionContext});\r\n");
                             }
 
-                            ctx.Emit("if (shouldTerminate)")
-                                .BeginBlock()
-                                .Emit("goto exit;")
-                                .EndBlock();
-                            if (ctx.DebugBuild) {
-                                ctx.Emit("else")
-                                    .BeginBlock()
-                                    .EmitRaw($"Trace.WriteLine(\"Resuming execution at {StatementNumber}\");")
-                                    .EndBlock();
-                            }
+                            ctx.Emit(
+                                $"{Constants.ProgramExecutionFrameName}.{nameof(ExecutionFrame.CancellationToken)}.ThrowIfCancellationRequested();");
+                            //     .BeginBlock()
+                            //     .Emit("goto exit;")
+                            //     .EndBlock();
+                            // if (ctx.DebugBuild) {
+                            //     ctx.Emit("else")
+                            //         .BeginBlock()
+                            //         .EmitRaw($"Trace.WriteLine(\"Resuming execution at {StatementNumber}\");")
+                            //         .EndBlock();
+                            // }
 
                             ctx.EndBlock();
                         }
@@ -76,29 +78,31 @@ public abstract partial class Statement
                             if (m != null)
                             {
                                 ctx.BeginBlock();
+                                ctx.EmitRaw(ctx.Indent() + "await ");
                                 if (m.IsStatic)
-                                    ctx.Emit(
-                                        $"bool shouldTerminate = {a.ClassName}.{a.MethodName}({Constants.FrameExecutionContext});");
+                                    ctx.EmitRaw(
+                                        $"{a.ClassName}.{a.MethodName}({Constants.FrameExecutionContext});\r\n");
                                 else
                                 {
                                     if (!ctx.ExternalReferences.Contains(a.ClassName))
                                         ctx.ExternalReferences.Add(a.ClassName);
 
                                     ctx.Emit(
-                                        $"bool shouldTerminate = {CompilationContext.GeneratePropertyName(a.ClassName)}.{a.MethodName}({Constants.FrameExecutionContext});\r\n");
+                                        $"{CompilationContext.GeneratePropertyName(a.ClassName)}.{a.MethodName}({Constants.FrameExecutionContext});\r\n");
                                 }
 
-                                ctx.Emit("if (shouldTerminate)")
-                                    .BeginBlock()
-                                    .Emit("goto exit;")
-                                    .EndBlock();
-                                if (ctx.DebugBuild)
-                                {
-                                    ctx.Emit("else")
-                                        .BeginBlock()
-                                        .Emit($"Trace.WriteLine(\"Resuming execution at {StatementNumber}\");")
-                                        .EndBlock();
-                                }
+                                ctx.Emit(
+                                    $"{Constants.ProgramExecutionFrameName}.{nameof(ExecutionFrame.CancellationToken)}.ThrowIfCancellationRequested();");
+                                //     .BeginBlock()
+                                //     .Emit("goto exit;")
+                                //     .EndBlock();
+                                // if (ctx.DebugBuild)
+                                // {
+                                //     ctx.Emit("else")
+                                //         .BeginBlock()
+                                //         .Emit($"Trace.WriteLine(\"Resuming execution at {StatementNumber}\");")
+                                //         .EndBlock();
+                                // }
 
                                 ctx.EndBlock();
                             }
@@ -128,7 +132,7 @@ public abstract partial class Statement
             if (!ctx.Program[Target].Any())
             {
                 //the passed label isn't a local label
-                ctx.Emit($"Trace.WriteLine(\"\\tDoing {Target} Next\");");
+                // ctx.Emit($"Trace.WriteLine(\"\\tDoing {Target} Next\");");
                 EmitExternalCall(ctx);
             }
 
@@ -136,25 +140,26 @@ public abstract partial class Statement
             {
                 var target = ctx.Program[Target].First();
                 var label = target as LabelStatement;
-                    
-                ctx.Emit(label != null
-                        ? $"Trace.WriteLine(\"\\tDoing {label.Label} Next\");"
-                        : $"Trace.WriteLine(\"\\tDoing statement #{target.StatementNumber} Next\");")
-                    
-                    .BeginBlock()
-                    .Emit($"bool shouldTerminate = {Constants.RuntimeEvaluate}(Eval,{label?.LabelNumber});")
-                    .Emit("if (shouldTerminate)")
-                    .BeginBlock()
-                    .Emit("goto exit;")
-                    .EndBlock();
 
-                if (ctx.DebugBuild)
-                {
-                    ctx.Emit("else")
-                        .BeginBlock()
-                        .Emit($"Trace.WriteLine(\"Resuming execution at {StatementNumber}\");")
-                        .EndBlock();
-                }
+                // ctx.Emit(label != null
+                //         ? $"Trace.WriteLine(\"\\tDoing {label.Label} Next\");"
+                //         : $"Trace.WriteLine(\"\\tDoing statement #{target.StatementNumber} Next\");")
+
+                ctx.BeginBlock()
+                    .Emit($"await {Constants.RuntimeEvaluate}(Eval,{label?.LabelNumber});")
+                    .Emit($"{Constants.ProgramExecutionFrameName}.{nameof(ExecutionFrame.CancellationToken)}.ThrowIfCancellationRequested();");
+
+                //     .BeginBlock()
+                //     .Emit("goto exit;")
+                //     .EndBlock();
+                //
+                // if (ctx.DebugBuild)
+                // {
+                //     ctx.Emit("else")
+                //         .BeginBlock()
+                //         .Emit($"Trace.WriteLine(\"Resuming execution at {StatementNumber}\");")
+                //         .EndBlock();
+                // }
 
                 ctx.EndBlock();
             }

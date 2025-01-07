@@ -383,7 +383,7 @@ public class ExecutionContext : AsyncDispatcher, IExecutionContext
 {
     #region Fields and constuctors
 
-    public static ExecutionContext CreateExecutionContext() => new ExecutionContext();
+    public static ExecutionContext CreateExecutionContext() => new();
 
     private ExecutionContext()
     {
@@ -514,7 +514,7 @@ public class ExecutionContext : AsyncDispatcher, IExecutionContext
     private class IntVariable(ExecutionContext ctx, string name) : Variable<uint>(ctx, name), IVariable
     {
         // ReSharper disable once UnusedMember.Local
-        private static Random _random = new Random();
+        private static Random _random = new();
         public uint Val;
 
         public uint Value
@@ -527,6 +527,12 @@ public class ExecutionContext : AsyncDispatcher, IExecutionContext
 
         public override void Retrieve()
         {
+            Trace.Write($"\t{name} contains: ");
+            foreach (var item in StashStack)
+            {
+                Trace.Write(item + " ");
+            }
+            Trace.WriteLine(null);
             try
             {
                 Val = StashStack.Pop();
@@ -538,7 +544,7 @@ public class ExecutionContext : AsyncDispatcher, IExecutionContext
         }
             
         public override string ToString() => Value.ToString();
-    };
+    }
         
     /// <inheritdoc cref="Variable{T}" />
     [Serializable]
@@ -650,19 +656,12 @@ public class ExecutionContext : AsyncDispatcher, IExecutionContext
     #endregion
 
     #region control flow
-    public void Run(IntercalThreadProc proc)
+    public async Task Run(IntercalThreadProc proc)
     {
-        StartProc sp = Evaluate;
-        Task.Run(() => sp(proc, 0));
-        //sp.BeginInvoke(proc, 0, ar => sp.EndInvoke(ar), null);
+        // StartProc sp = Evaluate;
 
-        lock (SyncLock)
-        {
-            while (!Done)
-            {
-                Monitor.Wait(SyncLock);
-            }
-        }
+        await Evaluate(proc, 0);
+        Trace.WriteLine("ENTRY THREAD FINISHED");
             
         if (CurrentException != null)
         {
@@ -670,19 +669,26 @@ public class ExecutionContext : AsyncDispatcher, IExecutionContext
         }
     }
         
-    public bool Evaluate(IntercalThreadProc proc, int label)
+    public async Task Evaluate(IntercalThreadProc proc, int label)
     {
+        Trace.WriteLine("\tEvaluating " + label);
         var frame = new ExecutionFrame(this, proc, label);
 
-        lock (SyncLock)
+        await using (await SyncLock.LockAsync(CancellationToken.None))
         {
-            if (NextingStack.Count >= 80)
-                Lib.Fail(IntercalError.E123);
-            NextingStack.Push(frame);
-        }
+            Trace.WriteLine("\tLocking in " + label);
+            if (label > 0)
+            {
+                if (NextingStack.Count >= 80)
+                    Lib.Fail(IntercalError.E123);
+                NextingStack.Push(frame); 
+            }
             
-        var result = frame.Start();
-        return result;
+            Trace.WriteLine("\tAwaiting " + label);
+            await (frame.RunningTask = frame.Start());
+            Trace.WriteLine("\tFinished " + label);
+        }
+        Trace.WriteLine("\tUnlocked " + label);
     }
 
     #endregion
@@ -1044,5 +1050,9 @@ public static class Lib
     /// </summary>
     /// <param name="errcode">An error code from <see cref="IntercalError"/>.</param>
     /// <exception cref="IntercalException"><see cref="errcode"/> incapsulated in an IntercalException.</exception>
-    public static void Fail(string errcode) => throw new IntercalException(errcode);
+    public static void Fail(string errcode)
+    {
+        Trace.WriteLine(errcode);
+        throw new IntercalException(errcode);
+    }
 }

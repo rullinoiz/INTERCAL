@@ -23,7 +23,7 @@ namespace INTERCAL.Statements
                 _depth = Expression.CreateExpression(s);
                 
                 // RESUME #0 is an error
-                if (_depth is Expression.ConstantExpression c && c.Value == 0)
+                if (_depth is Expression.ConstantExpression { Value: 0 })
                 {
                     Console.WriteLine(CompilationWarning.W622);
                 }
@@ -36,8 +36,8 @@ namespace INTERCAL.Statements
                 
                 if (_depth is Expression.ConstantExpression { Value: > 0 } d)
                 {
-                    ctx.Emit($"{Constants.RuntimeResume}({d.Value});");
-                    ctx.Emit($"goto {Constants.ExitLabelName};");
+                    ctx.Emit($"await {Constants.RuntimeResume}({d.Value});");
+                    ctx.Emit($"throw new TaskCanceledException();");
                     return;
                 }
                 
@@ -49,8 +49,8 @@ namespace INTERCAL.Statements
                 
                 ctx.Emit("if (depth > 0)")
                     .BeginBlock()
-                        .Emit($"{Constants.RuntimeResume}(depth);")
-                        .Emit($"goto {Constants.ExitLabelName};")
+                        .Emit($"await {Constants.RuntimeResume}(depth);")
+                        .Emit($"throw new TaskCanceledException();")
                     .EndBlock()
                 .EndBlock();
             }

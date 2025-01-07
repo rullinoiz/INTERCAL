@@ -331,31 +331,31 @@ public class Program
                                  || ctx.PublicLabels[((Statement.LabelStatement)s).Label]))
         {
             var s = (Statement.LabelStatement)statement;
-            ctx.EmitRaw(ctx.Indent() + "public bool DO_" 
+            ctx.EmitRaw(ctx.Indent() + "public Task DO_" 
                                      + s.Label.Substring(1, s.Label.Length - 2) 
                                      + "(ExecutionContext context) => ");
-            ctx.EmitRaw($"context.Evaluate(Eval, {s.Label});\r\n");
+            ctx.EmitRaw($"context.Evaluate(Eval, {s.LabelNumber});\r\n");
         }
 
         // This is the "late bound" version that allows clients to dynamically pass a label. *ALL* labels can be
         // accessed this way.
         if (ctx.TypeOfAssembly != CompilationContext.AssemblyType.Library) return;
         {
-            ctx.Emit("public void DO(ExecutionContext context, string label)")
+            ctx.Emit("public async Task DO(ExecutionContext context, string label)")
                 .BeginBlock()
-                .EmitRaw(ctx.Indent() + "switch(label)\r\n")
+                .EmitRaw(ctx.Indent() + "switch (label)\r\n")
                 .BeginBlock();
 
             foreach (var statement in Statements)
             {
-                if (!(statement is Statement.LabelStatement s)) continue;
+                if (statement is not Statement.LabelStatement s) continue;
                 if (ctx.PublicLabels != null && ctx.PublicLabels[s.Label] == false)
                     continue;
 
                 var labelValue = s.LabelNumber;
 
                 ctx.EmitRaw(ctx.Indent() + $"case \"{s.Label}\":\t");
-                ctx.EmitRaw($"context.Evaluate(Eval, {labelValue});\t");
+                ctx.EmitRaw($"await context.Evaluate(Eval, {labelValue});\t");
                 ctx.EmitRaw("break;\r\n");
             }
 
@@ -420,7 +420,7 @@ public class Program
         var labelStatements = labels as Statement.LabelStatement[] ?? labels.ToArray();
         if (labelStatements.Length == 0) return;
         //ctx.EmitRaw("dispatch:\n");
-        ctx.Emit("switch(frame.Label)")
+        ctx.Emit("switch (frame.Label)")
             .BeginBlock();
 
         foreach (var label in labelStatements)
@@ -441,6 +441,7 @@ public class Program
         //ctx.Emit("using System.Threading");
         ctx.Emit("using INTERCAL.Runtime;");
         ctx.Emit("using System.Diagnostics;");
+        ctx.Emit("using System.Threading.Tasks;");
 
         if (ctx.TypeOfAssembly == CompilationContext.AssemblyType.Library)
             EmitAttributes(ctx);
@@ -450,7 +451,7 @@ public class Program
         ctx.Emit($"public class {ctx.NameOfAssembly} : {ctx.BaseClass}");
         ctx.BeginBlock();
 
-        ctx.Emit("public void Run() => INTERCAL.Runtime.ExecutionContext.CreateExecutionContext().Run(Eval);");
+        ctx.Emit($"public Task Run() => {nameof(ExecutionContext)}.CreateExecutionContext().Run(Eval);");
 
         // We assume that EXEs do not want to expose labels and that DLLs do.
         if (ctx.TypeOfAssembly == CompilationContext.AssemblyType.Library)
@@ -504,13 +505,15 @@ public class Program
         //ctx.EmitRaw("      Console.ReadLine();\r\n");
         //ctx.EmitRaw("      while(Console.In.Peek() != -1) { Console.Read(); }\r\n\r\n");
 
-        ctx.Emit("// Speed up startup time by ensuring adequate thread availability");
-        ctx.Emit("var t = System.Threading.ThreadPool.SetMinThreads(80, 4);");
+        // ctx.Emit("// Speed up startup time by ensuring adequate thread availability");
+        // ctx.Emit("var t = System.Threading.ThreadPool.SetMinThreads(80, 4);");
 
         ctx.Emit("try")
             .BeginBlock()
             .Emit($"var program = new {ctx.NameOfAssembly}();")
-            .Emit("program.Run();")
+            .Emit("await program.Run();")
+            .Emit("Console.WriteLine(\"End of program\");")
+            .Emit("await Task.Delay(-1);")
             .EndBlock()
             .Emit("catch (Exception e)")
             .BeginBlock()
@@ -557,10 +560,12 @@ public class Program
                 c.Emit($"{Constants.NextLabelPrefix}{label.LabelNumber}:");
                 break;
             //We need to emit labels for COME FROM so the trapdoor has something to point to.
-            case Statement.ComeFromStatement _:
+            case Statement.ComeFromStatement:
                 c.Emit($"{Constants.ComeFromLabelPrefix}{s.StatementNumber}:");
                 break;
         }
+        
+        c.Emit($"Trace.WriteLine(\"{s.StatementText.Replace("\"", "\\\"").Replace("\n", "")}\");");
             
         //Uncomment these lines to emit labels for every single statement.  This
         //is not currently necessary..

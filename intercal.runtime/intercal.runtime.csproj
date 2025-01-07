@@ -74,5 +74,6 @@
 <!--  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />-->
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
+    <PackageReference Include="ReentrantAsyncLock" Version="0.3.2" />
   </ItemGroup>
 </Project>

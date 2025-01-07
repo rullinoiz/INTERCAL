@@ -12,7 +12,8 @@ public abstract partial class Statement
         public override void Emit(CompilationContext ctx)
         {
             //-1 means "unconditional return"
-            ctx.Emit(Constants.RuntimeGiveUp + "();");
+            ctx.Emit($"await {Constants.RuntimeGiveUp}();");
+            ctx.Emit($"throw new OperationCanceledException();");
         }
     }
 }

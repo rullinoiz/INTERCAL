@@ -13,9 +13,9 @@ public static class Constants
     public const string AbstainMapName = "_abstainMap";
 
     public const string EntryClassSignature = "internal static class Entry";
-    public const string EntryMethodSignature = "internal static void Main(string[] args)";
+    public const string EntryMethodSignature = "internal static async Task Main(string[] args)";
 
-    public const string EvalMethodSignature = "protected void " + EvalMethodName + "(" + nameof(ExecutionFrame) +
+    public const string EvalMethodSignature = "protected async Task " + EvalMethodName + "(" + nameof(ExecutionFrame) +
                                               " " + ProgramExecutionFrameName + ")";
 
     public const string LibName = nameof(Lib);

@@ -47,7 +47,7 @@ public abstract partial class Statement
                     labelList += " + " + lval.Name;
                 }
             }
-            ctx.Emit($"Trace.WriteLine(\"\\tStashing {labelList}\");");
+            // ctx.Emit($"Trace.WriteLine(\"\\tStashing {labelList}\");");
             ctx.Emit($"{Constants.RuntimeStash}({labelArgs});");
         }
     }

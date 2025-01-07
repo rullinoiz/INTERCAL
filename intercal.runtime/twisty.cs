@@ -29,40 +29,69 @@ using System.Threading.Tasks;
 
 namespace INTERCAL.Runtime;
 
-public delegate void IntercalThreadProc(ExecutionFrame context);
+public delegate Task IntercalThreadProc(ExecutionFrame context);
 
-public class ExecutionFrame(ExecutionContext context, IntercalThreadProc proc, int label)
+public class ExecutionFrame
 {
-    private readonly object _syncLock = new ();
-    public readonly ExecutionContext ExecutionContext = context;
-    public readonly IntercalThreadProc Proc = proc;
-    private bool _complete;
+    // private readonly ReentrantAsyncLock.ReentrantAsyncLock _syncLock = new();
+    public readonly ExecutionContext ExecutionContext;
+    public readonly IntercalThreadProc Proc;
+    private readonly CancellationTokenSource Token = new();
+    private TaskCompletionSource CompletionToken;
+    public CancellationToken CancellationToken => Token.Token;
+    public Task RunningTask;
 
+    public static int instances;
+    
     /// <summary>
     /// Returned to the calling thread to tell it whether or not it should terminate. Right now <c>true</c> means
     /// "terminate" (you've been forgotten) and false means "continue" (you've been resumed).
     /// </summary>
-    private bool _result;
-    public readonly int Label = label;
+    public readonly int Label;
 
-    public bool Start()
+    public ExecutionFrame(ExecutionContext context, IntercalThreadProc proc, int label)
+    {
+        ExecutionContext = context;
+        Proc = proc;
+        Label = label;
+        instances++;
+    }
+
+    public async Task Start()
     {
         // Note that the only reason we need to spin up a new thread is the lurking possiblity of FORGET. If we could
         // guarantee that the function referenced by this.Proc never does a FORGET then we could just make a direct
         // function call.
 
-        var myThread = new IntercalThreadProc(InternalThreadProc);
-        Task.Run(() => myThread(this));
+        // var myThread = new IntercalThreadProc(InternalThreadProc);
+        // await Task.Run(() => InternalThreadProc(this));
 
-        lock (_syncLock)
-        {
-            while (!_complete)
+        // await using (await _syncLock.LockAsync(CancellationToken.None))
+        // {
+        CompletionToken = new TaskCompletionSource();
+            try
             {
-                Monitor.Wait(_syncLock);
+                Trace.WriteLine($"\t[{Label}] New task");
+                await Task.Run(() => Proc(this), Token.Token);
             }
-        }
-            
-        return _result;
+            catch (TaskCanceledException)
+            {
+                Trace.WriteLine($"\t[{Label}] Task cancelled");
+            }
+            catch (OperationCanceledException)
+            {
+                Trace.WriteLine($"\t[{Label}] Operation cancelled");
+            }
+            catch (Exception e)
+            {
+                ExecutionContext.OnUnhandledException(e);
+            }
+
+            Trace.Write($"\t[{Label}] Finished task, ");
+            Trace.Write(Token.Token.IsCancellationRequested ? "aborted\n" : "resumed\n");
+
+            await CompletionToken.Task;
+        // }
     }
 
     public void Resume() => Finish(false);
@@ -71,32 +100,23 @@ public class ExecutionFrame(ExecutionContext context, IntercalThreadProc proc, i
 
     private void Finish(bool result)
     {
-        _result = result;
-        _complete = true;
-
-        lock (_syncLock)
+        if (!result)
         {
-            Monitor.Pulse(_syncLock);
+            Trace.WriteLine($"[{Label}] Resuming");
         }
-    }
-    
-    private void InternalThreadProc(ExecutionFrame ctx)
-    {
-        try
+        else
         {
-            Proc(this);
+            Trace.WriteLine($"\t[{Label}] Canceling token");
+            Token.Cancel();
         }
-        catch (Exception e)
-        {
-            ExecutionContext.OnUnhandledException(e);
-        }
+        CompletionToken.SetResult();
     }
 }
 
 public class AsyncDispatcher
 {
     protected bool Done;
-    protected readonly object SyncLock = new();
+    protected readonly ReentrantAsyncLock.ReentrantAsyncLock SyncLock = new();
     protected Exception CurrentException { get; private set; }
     protected readonly Stack<ExecutionFrame> NextingStack = new(80);
 
@@ -107,23 +127,38 @@ public class AsyncDispatcher
     /// stack is the frame that is waiting for the current thread to return.
     /// </remarks>
     /// <exception cref="IntercalException">Throws <see cref="IntercalError.E632"/>.</exception>
-    public void Resume(uint depth)
+    public async Task Resume(uint depth)
     {
         if (depth <= NextingStack.Count)
         {
-            lock (SyncLock)
+            await using (await SyncLock.LockAsync(CancellationToken.None))
             {
+                var tasks = new List<Task>();
                 for (var i = 0; i < depth - 1 && NextingStack.Count >= 0; i++)
                 {
                     var f = NextingStack.Pop();
 
-                    //Debug.WriteLine(string.Format("[{0}]   Discarding {1}.{2}({3})\r\n",
-                    //Thread.CurrentThread.ManagedThreadId,
-                    //f.Proc.Target.GetType().Name,
-                    //f.Proc.Method.Name,
-                    //f.Label));
+                    // Debug.WriteLine("[{0}]   Discarding {1}.{2}({3})\r\n", Environment.CurrentManagedThreadId, f.Proc.Target?.GetType().Name, f.Proc.Method.Name, f.Label);
 
                     f.Abort();
+                    tasks.Add(f.RunningTask);
+                }
+
+                if (tasks.Count > 0)
+                {
+                    _ = Task.WhenAll(tasks).ContinueWith(async _ =>
+                    {
+                        await using (await SyncLock.LockAsync(CancellationToken.None))
+                        {
+                            // Resume the thread that's on top...
+                            NextingStack.Peek().Resume();
+                            // // ..since the thread that's on top has resumed that means nobody is waiting on it anymore.
+                            // // So we can pop it.
+                            // NextingStack.Pop();
+
+                            DumpStack();
+                        }
+                    });
                 }
 
                 // var frame = NextingStack.Peek();
@@ -133,24 +168,20 @@ public class AsyncDispatcher
                 //     frame.Proc.Method.Name, 
                 //     frame.Label);
 
-                // Resume the thread that's on top...
-                NextingStack.Peek().Resume();
-                // ..since the thread that's on top has resumed that means nobody is waiting on it anymore.
-                // So we can pop it.
-                NextingStack.Pop();
-
-                DumpStack();
+                
             }
         }
         else
         {
             throw new IntercalException(IntercalError.E632);
         }
+
+        // return Task.CompletedTask;
     }
         
-    public void Forget(int depth)
+    public async Task Forget(int depth)
     {
-        lock (SyncLock)
+        await using (await SyncLock.LockAsync(CancellationToken.None))
         {
             // Note that it's totally kosher to underflow the nexting stack in intercal. I haven't tested what this
             // code would do if we underflow. 
@@ -160,29 +191,31 @@ public class AsyncDispatcher
                 frame.Abort();
             }
         }
+        // return Task.CompletedTask;
     }
 
-    public void GiveUp()
+    public async Task GiveUp()
     {
-        lock (SyncLock)
+        await using (await SyncLock.LockAsync(CancellationToken.None))
         {
             while (NextingStack.Count > 0)
                 NextingStack.Pop().Abort();
 
             Done = true;
-            Monitor.Pulse(SyncLock);
+            // Monitor.Pulse(SyncLock);
         }
+        // return Task.CompletedTask;
     }
 
     [Conditional("DEBUG")]
     private void DumpStack()
     {
-        // var sb = new StringBuilder();
-        // var items = NextingStack.ToList();
-        // sb.Append($"[{Environment.CurrentManagedThreadId}] Nexting Stack:\r\n");
-        // foreach (var frame in items)
-        //     sb.Append($"\t\t{frame.Proc.Target!.GetType().Name}.{frame.Proc.Method.Name}({frame.Label})\r\n");
-        // Debug.WriteLine(sb.ToString());
+        var sb = new StringBuilder();
+        var items = NextingStack.ToList();
+        sb.Append($"[{Environment.CurrentManagedThreadId}] Nexting Stack:\r\n");
+        foreach (var frame in items)
+            sb.Append($"\t\t{frame.Proc.Target!.GetType().Name}.{frame.Proc.Method.Name}({frame.Label})\r\n");
+        Debug.WriteLine(sb.ToString());
     }
         
     internal void OnUnhandledException(Exception e)
@@ -196,7 +229,7 @@ public class AsyncDispatcher
         foreach (var frame in list)
             sb.Append($"\tat {frame.Proc.Target!.GetType().Name}.{frame.Proc.Method.Name}({frame.Label})\r\n");
 
-        CurrentException = new IntercalException(sb.ToString(), e);
-        GiveUp();
+        throw new IntercalException(sb.ToString(), e);
+        // _ = GiveUp();
     }
 }
