@@ -36,8 +36,8 @@ public class ExecutionFrame
     // private readonly ReentrantAsyncLock.ReentrantAsyncLock _syncLock = new();
     public readonly ExecutionContext ExecutionContext;
     public readonly IntercalThreadProc Proc;
-    private readonly CancellationTokenSource Token = new();
-    private TaskCompletionSource CompletionToken;
+    public CancellationTokenSource Token = new();
+    public TaskCompletionSource CompletionToken = new();
     public CancellationToken CancellationToken => Token.Token;
     public Task RunningTask;
 
@@ -62,36 +62,33 @@ public class ExecutionFrame
         // Note that the only reason we need to spin up a new thread is the lurking possiblity of FORGET. If we could
         // guarantee that the function referenced by this.Proc never does a FORGET then we could just make a direct
         // function call.
+        var id = Environment.CurrentManagedThreadId;
 
-        // var myThread = new IntercalThreadProc(InternalThreadProc);
-        // await Task.Run(() => InternalThreadProc(this));
+        try
+        {
+            Trace.WriteLine($"\t[L-{Label} ID-{id}] New task");
+            ExecutionContext.Current = this;
+            await Task.Run(
+                () => Proc(this), 
+                Token.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            Trace.WriteLine($"\t[-{Label} ID-{id}] Task cancelled");
+        }
+        catch (OperationCanceledException)
+        {
+            Trace.WriteLine($"\t[L-{Label} ID-{id}] Operation cancelled");
+        }
+        catch (Exception e)
+        {
+            ExecutionContext.OnUnhandledException(e);
+        }
 
-        // await using (await _syncLock.LockAsync(CancellationToken.None))
-        // {
-        CompletionToken = new TaskCompletionSource();
-            try
-            {
-                Trace.WriteLine($"\t[{Label}] New task");
-                await Task.Run(() => Proc(this), Token.Token);
-            }
-            catch (TaskCanceledException)
-            {
-                Trace.WriteLine($"\t[{Label}] Task cancelled");
-            }
-            catch (OperationCanceledException)
-            {
-                Trace.WriteLine($"\t[{Label}] Operation cancelled");
-            }
-            catch (Exception e)
-            {
-                ExecutionContext.OnUnhandledException(e);
-            }
-
-            Trace.Write($"\t[{Label}] Finished task, ");
-            Trace.Write(Token.Token.IsCancellationRequested ? "aborted\n" : "resumed\n");
-
-            await CompletionToken.Task;
-        // }
+        Trace.Write($"\t[L-{Label} ID-{id}] Finished task, ");
+        Trace.Write(Token.Token.IsCancellationRequested ? "aborted\n" : "resumed\n");
+        
+        // await CompletionToken.Task;
     }
 
     public void Resume() => Finish(false);
@@ -100,16 +97,19 @@ public class ExecutionFrame
 
     private void Finish(bool result)
     {
+        var id = Task.CurrentId;
         if (!result)
         {
-            Trace.WriteLine($"[{Label}] Resuming");
+            Trace.WriteLine($"[L{Label} ID{id}] Resuming");
+            ExecutionContext.Current = this;
         }
         else
         {
-            Trace.WriteLine($"\t[{Label}] Canceling token");
+            Trace.WriteLine($"\t[L{Label} ID{id}] Canceling token");
             Token.Cancel();
         }
         CompletionToken.SetResult();
+        // Trace.WriteLine($"\t[{Label}] setting result returned {CompletionToken.TrySetResult()}");
     }
 }
 
@@ -129,37 +129,37 @@ public class AsyncDispatcher
     /// <exception cref="IntercalException">Throws <see cref="IntercalError.E632"/>.</exception>
     public async Task Resume(uint depth)
     {
+        Trace.WriteLine($"\tResume({depth}); NextingStack.Count = {NextingStack.Count}");
         if (depth <= NextingStack.Count)
         {
-            await using (await SyncLock.LockAsync(CancellationToken.None))
-            {
-                var tasks = new List<Task>();
+            // await using (await SyncLock.LockAsync(CancellationToken.None))
+            // {
                 for (var i = 0; i < depth - 1 && NextingStack.Count >= 0; i++)
                 {
                     var f = NextingStack.Pop();
+                    Trace.WriteLine($"\t[{f.Label}] aborting and popping");
 
                     // Debug.WriteLine("[{0}]   Discarding {1}.{2}({3})\r\n", Environment.CurrentManagedThreadId, f.Proc.Target?.GetType().Name, f.Proc.Method.Name, f.Label);
 
                     f.Abort();
-                    tasks.Add(f.RunningTask);
+                    // tasks.Add(f.RunningTask);
                 }
-
-                if (tasks.Count > 0)
-                {
-                    _ = Task.WhenAll(tasks).ContinueWith(async _ =>
-                    {
-                        await using (await SyncLock.LockAsync(CancellationToken.None))
-                        {
-                            // Resume the thread that's on top...
-                            NextingStack.Peek().Resume();
-                            // // ..since the thread that's on top has resumed that means nobody is waiting on it anymore.
-                            // // So we can pop it.
-                            // NextingStack.Pop();
-
-                            DumpStack();
-                        }
-                    });
-                }
+                
+                // Resume the thread that's on top...
+                NextingStack.Peek().Resume();
+                // // ..since the thread that's on top has resumed that means nobody is waiting on it anymore.
+                // // So we can pop it.
+                Trace.WriteLine($"\t{NextingStack.Pop().Label}");
+                
+                DumpStack();
+                
+                // var t = Task.WhenAll(tasks).ContinueWith(async _ =>
+                // {
+                //     await using (await SyncLock.LockAsync(CancellationToken.None))
+                //     {
+                //         
+                //     }
+                // }).ContinueWith(_ => DumpStack());
 
                 // var frame = NextingStack.Peek();
                 // Debug.WriteLine("[{0}]   Resuming from {1}.{2}({3})\r\n",
@@ -169,7 +169,7 @@ public class AsyncDispatcher
                 //     frame.Label);
 
                 
-            }
+            // }
         }
         else
         {
@@ -181,8 +181,9 @@ public class AsyncDispatcher
         
     public async Task Forget(int depth)
     {
-        await using (await SyncLock.LockAsync(CancellationToken.None))
-        {
+        Trace.WriteLine($"\tForget({depth}); NextingStack.Count = {NextingStack.Count}");
+        // await using (await SyncLock.LockAsync(CancellationToken.None))
+        // {
             // Note that it's totally kosher to underflow the nexting stack in intercal. I haven't tested what this
             // code would do if we underflow. 
             for (var i = 0; i < depth && NextingStack.Count > 0; i++)
@@ -190,29 +191,30 @@ public class AsyncDispatcher
                 var frame = NextingStack.Pop();
                 frame.Abort();
             }
-        }
+            DumpStack();
+        // }
+        Trace.WriteLine($"\tEnd forget");
         // return Task.CompletedTask;
     }
 
     public async Task GiveUp()
     {
-        await using (await SyncLock.LockAsync(CancellationToken.None))
-        {
+        Trace.WriteLine("GIVING UP");
+        // await using (await SyncLock.LockAsync(CancellationToken.None))
+        // {
             while (NextingStack.Count > 0)
                 NextingStack.Pop().Abort();
 
             Done = true;
-            // Monitor.Pulse(SyncLock);
-        }
-        // return Task.CompletedTask;
+        // }
     }
 
     [Conditional("DEBUG")]
-    private void DumpStack()
+    public void DumpStack()
     {
         var sb = new StringBuilder();
         var items = NextingStack.ToList();
-        sb.Append($"[{Environment.CurrentManagedThreadId}] Nexting Stack:\r\n");
+        sb.Append($"\t[{Environment.CurrentManagedThreadId}] Nexting Stack:\r\n");
         foreach (var frame in items)
             sb.Append($"\t\t{frame.Proc.Target!.GetType().Name}.{frame.Proc.Method.Name}({frame.Label})\r\n");
         Debug.WriteLine(sb.ToString());

@@ -382,6 +382,7 @@ public interface IExecutionContext
 public class ExecutionContext : AsyncDispatcher, IExecutionContext
 {
     #region Fields and constuctors
+    public ExecutionFrame Current;
 
     public static ExecutionContext CreateExecutionContext() => new();
 
@@ -669,26 +670,30 @@ public class ExecutionContext : AsyncDispatcher, IExecutionContext
         }
     }
         
-    public async Task Evaluate(IntercalThreadProc proc, int label)
+    public async Task Evaluate(IntercalThreadProc proc, int label, ExecutionFrame caller = null)
     {
         Trace.WriteLine("\tEvaluating " + label);
         var frame = new ExecutionFrame(this, proc, label);
+        var current = Current ?? frame;
+        current.CompletionToken = new TaskCompletionSource();
 
-        await using (await SyncLock.LockAsync(CancellationToken.None))
-        {
-            Trace.WriteLine("\tLocking in " + label);
+        // await using (await SyncLock.LockAsync(CancellationToken.None))
+        // {
+            // Trace.WriteLine("\tLocking in " + label);
             if (label > 0)
             {
                 if (NextingStack.Count >= 80)
                     Lib.Fail(IntercalError.E123);
-                NextingStack.Push(frame); 
+                NextingStack.Push(current);
             }
-            
-            Trace.WriteLine("\tAwaiting " + label);
-            await (frame.RunningTask = frame.Start());
-            Trace.WriteLine("\tFinished " + label);
-        }
-        Trace.WriteLine("\tUnlocked " + label);
+            DumpStack();
+            //Trace.WriteLine("\tAwaiting " + label);
+            await Task.WhenAll(frame.Start(), current.CompletionToken.Task);
+            //Trace.WriteLine("\tFinished " + label + " " + current.CancellationToken.IsCancellationRequested);
+        // }
+        
+        // Trace.WriteLine("\tUnlocked " + label);
+        // return caller.CancellationToken;
     }
 
     #endregion
@@ -735,7 +740,7 @@ public class ExecutionContext : AsyncDispatcher, IExecutionContext
                 Lib.Fail(IntercalError.E241);
                 break;
         }
-
+        // Trace.WriteLine($"\t{varname} contains {retval}");
         return retval;
     }
         

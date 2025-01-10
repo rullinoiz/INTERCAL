@@ -51,11 +51,6 @@
 <!--    <Prefer32Bit>false</Prefer32Bit>-->
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System">
-      <Name>System</Name>
-    </Reference>
-  </ItemGroup>
-  <ItemGroup>
 <!--    <Compile Update="AssemblyInfo.cs">-->
 <!--      <SubType>Code</SubType>-->
 <!--    </Compile>-->
