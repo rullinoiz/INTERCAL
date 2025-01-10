@@ -565,7 +565,8 @@ public class Program
                 break;
         }
         
-        c.Emit($"Trace.WriteLine(\"[{s.StatementNumber}] {s.StatementText.Replace("\"", "\\\"").Replace("\n", "")}\");");
+        if (c.DebugBuild)
+            c.Emit($"Trace.WriteLine(\"[{s.StatementNumber}] {s.StatementText.Replace("\"", "\\\"").Replace("\n", "")}\");");
             
         //Uncomment these lines to emit labels for every single statement.  This
         //is not currently necessary..

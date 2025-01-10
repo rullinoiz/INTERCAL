@@ -40,7 +40,7 @@ public abstract partial class Statement
                 ctx.EmitRaw("\");\r\n");
             }
 
-            ctx.EmitRaw(ctx.Indent() + $"await {Constants.RuntimeForget}(");
+            ctx.EmitRaw(ctx.Indent() + $"{Constants.RuntimeForget}(");
             _exp.Emit(ctx);
             ctx.EmitRaw(");\r\n");
         }

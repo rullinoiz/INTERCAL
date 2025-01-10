@@ -29,7 +29,8 @@ public abstract partial class Statement
                     labelList += " + " + lval.Name;
                 }
             }
-            ctx.Emit($"Trace.WriteLine(\"\\tRetrieving {labelList}\");");
+            if (ctx.DebugBuild)
+                ctx.Emit($"Trace.WriteLine(\"\\tRetrieving {labelList}\");");
             ctx.Emit($"{Constants.RuntimeRetrieve}({labelArgs});");
         }
 

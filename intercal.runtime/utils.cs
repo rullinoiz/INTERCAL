@@ -528,7 +528,7 @@ public class ExecutionContext : AsyncDispatcher, IExecutionContext
 
         public override void Retrieve()
         {
-            Trace.Write($"\t{name} contains: ");
+            //Trace.Write($"\t{name} contains: ");
             foreach (var item in StashStack)
             {
                 Trace.Write(item + " ");
@@ -819,10 +819,10 @@ public class ExecutionContext : AsyncDispatcher, IExecutionContext
     /// </remarks>
     public void ReadOut(string identifier)
     {
-        Trace.WriteLine($"Reading out variable '{identifier.Length}'");
+        //Trace.WriteLine($"Reading out variable '{identifier.Length}'");
 
         var next = _variables[identifier].ToString();
-        Trace.WriteLine($"Reading out value '{next}'");
+        //Trace.WriteLine($"Reading out value '{next}'");
 
         if (_variables[identifier] is ArrayVariable)
             TextOut.Write(next);
@@ -835,14 +835,14 @@ public class ExecutionContext : AsyncDispatcher, IExecutionContext
     /// <inheritdoc cref="ReadOut(string)"/>
     public void ReadOut(object expression)
     {
-        Trace.WriteLine($"Reading out object '{expression}'");
+        //Trace.WriteLine($"Reading out object '{expression}'");
         TextOut.WriteLine(expression);
         TextOut.Flush();
     }
 
     public void WriteIn(string identifier)
     {
-        Trace.WriteLine($"Writing into {identifier}");
+        //Trace.WriteLine($"Writing into {identifier}");
         //the intercal model is stream-based - calling WriteIn reads as
         //many chars as there are in the array (or fewer if EOF is reached)
         //Console.Write("{0}?>", s);
@@ -865,7 +865,7 @@ public class ExecutionContext : AsyncDispatcher, IExecutionContext
                 var v = (c - LastIn) % 256;
                 LastIn = c;
 
-                Trace.WriteLine($"Writing '{(char)c}' into index {i}");
+                //Trace.WriteLine($"Writing '{(char)c}' into index {i}");
                 this[identifier, idx] = v;
             }
         }

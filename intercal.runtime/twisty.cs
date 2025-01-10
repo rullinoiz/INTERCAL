@@ -66,7 +66,7 @@ public class ExecutionFrame
 
         try
         {
-            Trace.WriteLine($"\t[L-{Label} ID-{id}] New task");
+            //Trace.WriteLine($"\t[L-{Label} ID-{id}] New task");
             ExecutionContext.Current = this;
             await Task.Run(
                 () => Proc(this), 
@@ -74,19 +74,19 @@ public class ExecutionFrame
         }
         catch (TaskCanceledException)
         {
-            Trace.WriteLine($"\t[-{Label} ID-{id}] Task cancelled");
+            //Trace.WriteLine($"\t[-{Label} ID-{id}] Task cancelled");
         }
         catch (OperationCanceledException)
         {
-            Trace.WriteLine($"\t[L-{Label} ID-{id}] Operation cancelled");
+            //Trace.WriteLine($"\t[L-{Label} ID-{id}] Operation cancelled");
         }
         catch (Exception e)
         {
             ExecutionContext.OnUnhandledException(e);
         }
 
-        Trace.Write($"\t[L-{Label} ID-{id}] Finished task, ");
-        Trace.Write(Token.Token.IsCancellationRequested ? "aborted\n" : "resumed\n");
+        //Trace.Write($"\t[L-{Label} ID-{id}] Finished task, ");
+        //Trace.Write(Token.Token.IsCancellationRequested ? "aborted\n" : "resumed\n");
         
         // await CompletionToken.Task;
     }
@@ -100,12 +100,12 @@ public class ExecutionFrame
         var id = Task.CurrentId;
         if (!result)
         {
-            Trace.WriteLine($"[L{Label} ID{id}] Resuming");
+            // Trace.WriteLine($"[L{Label} ID{id}] Resuming");
             ExecutionContext.Current = this;
         }
         else
         {
-            Trace.WriteLine($"\t[L{Label} ID{id}] Canceling token");
+            // Trace.WriteLine($"\t[L{Label} ID{id}] Canceling token");
             Token.Cancel();
         }
         CompletionToken.SetResult();
@@ -127,7 +127,7 @@ public class AsyncDispatcher
     /// stack is the frame that is waiting for the current thread to return.
     /// </remarks>
     /// <exception cref="IntercalException">Throws <see cref="IntercalError.E632"/>.</exception>
-    public async Task Resume(uint depth)
+    public void Resume(uint depth)
     {
         Trace.WriteLine($"\tResume({depth}); NextingStack.Count = {NextingStack.Count}");
         if (depth <= NextingStack.Count)
@@ -137,7 +137,7 @@ public class AsyncDispatcher
                 for (var i = 0; i < depth - 1 && NextingStack.Count >= 0; i++)
                 {
                     var f = NextingStack.Pop();
-                    Trace.WriteLine($"\t[{f.Label}] aborting and popping");
+                    //Trace.WriteLine($"\t[{f.Label}] aborting and popping");
 
                     // Debug.WriteLine("[{0}]   Discarding {1}.{2}({3})\r\n", Environment.CurrentManagedThreadId, f.Proc.Target?.GetType().Name, f.Proc.Method.Name, f.Label);
 
@@ -149,7 +149,8 @@ public class AsyncDispatcher
                 NextingStack.Peek().Resume();
                 // // ..since the thread that's on top has resumed that means nobody is waiting on it anymore.
                 // // So we can pop it.
-                Trace.WriteLine($"\t{NextingStack.Pop().Label}");
+                NextingStack.Pop();
+                //Trace.WriteLine($"\t{NextingStack.Pop().Label}");
                 
                 DumpStack();
                 
@@ -176,10 +177,10 @@ public class AsyncDispatcher
             throw new IntercalException(IntercalError.E632);
         }
 
-        // return Task.CompletedTask;
+        //return Task.CompletedTask;
     }
         
-    public async Task Forget(int depth)
+    public void Forget(int depth)
     {
         Trace.WriteLine($"\tForget({depth}); NextingStack.Count = {NextingStack.Count}");
         // await using (await SyncLock.LockAsync(CancellationToken.None))
@@ -193,7 +194,7 @@ public class AsyncDispatcher
             }
             DumpStack();
         // }
-        Trace.WriteLine($"\tEnd forget");
+        //Trace.WriteLine($"\tEnd forget");
         // return Task.CompletedTask;
     }
 
@@ -212,6 +213,7 @@ public class AsyncDispatcher
     [Conditional("DEBUG")]
     public void DumpStack()
     {
+        // return;
         var sb = new StringBuilder();
         var items = NextingStack.ToList();
         sb.Append($"\t[{Environment.CurrentManagedThreadId}] Nexting Stack:\r\n");

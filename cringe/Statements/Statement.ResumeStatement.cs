@@ -36,7 +36,7 @@ namespace INTERCAL.Statements
                 
                 if (_depth is Expression.ConstantExpression { Value: > 0 } d)
                 {
-                    ctx.Emit($"await {Constants.RuntimeResume}({d.Value});");
+                    ctx.Emit($"{Constants.RuntimeResume}({d.Value});");
                     ctx.Emit($"throw new TaskCanceledException();");
                     return;
                 }
@@ -49,7 +49,7 @@ namespace INTERCAL.Statements
                 
                 ctx.Emit("if (depth > 0)")
                     .BeginBlock()
-                        .Emit($"await {Constants.RuntimeResume}(depth);")
+                        .Emit($"{Constants.RuntimeResume}(depth);")
                         .Emit($"throw new TaskCanceledException();")
                     .EndBlock()
                 .EndBlock();
